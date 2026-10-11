@@ -1250,6 +1250,18 @@
     <Filter Include="includes\assimp\bin">
       <UniqueIdentifier>{ec5cf328-64b4-47e4-ad3c-e7db2e6cd1da}</UniqueIdentifier>
     </Filter>
+    <Filter Include="resources\objects">
+      <UniqueIdentifier>{39cd740c-6f96-4368-9d5a-f3f8726b1bbe}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\objects\2B">
+      <UniqueIdentifier>{c3051a92-1c78-4b58-96a1-cf5002d5895c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\objects\2B-in-kimono">
+      <UniqueIdentifier>{aa44f0f8-3886-4853-aebf-397bce66d9db}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources\objects\ijichi-nijika">
+      <UniqueIdentifier>{45fdcbe3-8ccc-4335-b3d9-fd25d6fb3252}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Library Include="libraries\glfw3.lib">
