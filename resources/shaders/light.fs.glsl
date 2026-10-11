@@ -184,7 +184,6 @@ void CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, v
     specular = light.specular * spec * material.specular * attenuation * light.color;
 }
 
-/*
 vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec3 texColor)
 {
     vec3 lightDir = normalize(light.position - fragPos);
@@ -208,4 +207,3 @@ vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec
 
     return (ambient + diffuse + specular);
 }
-*/
