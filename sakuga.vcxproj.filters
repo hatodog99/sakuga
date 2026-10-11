@@ -1247,6 +1247,9 @@
     <Filter Include="includes\stb">
       <UniqueIdentifier>{09aa19b0-0984-4eac-816b-9eab3fa9e5df}</UniqueIdentifier>
     </Filter>
+    <Filter Include="includes\assimp\bin">
+      <UniqueIdentifier>{ec5cf328-64b4-47e4-ad3c-e7db2e6cd1da}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Library Include="libraries\glfw3.lib">
@@ -1268,12 +1271,6 @@
     </Image>
   </ItemGroup>
   <ItemGroup>
-    <None Include="resources\shaders\shader.fs.glsl">
-      <Filter>resources\shaders</Filter>
-    </None>
-    <None Include="resources\shaders\shader.vs.glsl">
-      <Filter>resources\shaders</Filter>
-    </None>
     <None Include="includes\glm\detail\func_common.inl">
       <Filter>includes\glm\detail</Filter>
     </None>
@@ -1729,6 +1726,36 @@
     </None>
     <None Include="includes\assimp\vector3.inl">
       <Filter>includes\assimp</Filter>
+    </None>
+    <None Include="resources\shaders\depth_test.fs.glsl">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="resources\shaders\light.fs.glsl">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="resources\shaders\light.vs.glsl">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="resources\shaders\light_cube.fs.glsl">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="resources\shaders\light_cube.vs.glsl">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="resources\shaders\linear_depth_test.fs.glsl">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="resources\shaders\no_light.fs.glsl">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="resources\shaders\outline.fs.glsl">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="resources\shaders\outline.vs.glsl">
+      <Filter>resources\shaders</Filter>
+    </None>
+    <None Include="includes\assimp\bin\assimp-vc145-mtd.dll">
+      <Filter>includes\assimp\bin</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
