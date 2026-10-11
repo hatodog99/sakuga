@@ -16,7 +16,11 @@
 #include <vector>
 using namespace std;
 
-unsigned int TextureFromFile(const char* path, const string& directory, bool gamma = false);
+// Loads a texture into an OpenGL texture object.
+// `path` is either a file name relative to `directory`, or an embedded texture
+// reference such as "*0" (GLB/glTF). Pass the scene so embedded textures can be found.
+// On failure a 1x1 white texture is returned so the shader doesn't sample black.
+unsigned int TextureFromFile(const char* path, const string& directory, bool gamma = false, const aiScene* scene = nullptr);
 
 class Model
 {
@@ -38,13 +42,13 @@ private:
     void loadModel(string const& path);
 
     // processes a node in a recursive fashion. Processes each individual mesh located at the node and repeats this process on its children nodes (if any).
-    void processNode(aiNode* node, const aiScene* scene);
+    void processNode(aiNode* node, const aiScene* scene, const glm::mat4& parentTransform);
 
-    Mesh processMesh(aiMesh* mesh, const aiScene* scene);
+    Mesh processMesh(aiMesh* mesh, const aiScene* scene, const glm::mat4& transform);
 
     // checks all material textures of a given type and loads the textures if they're not loaded yet.
     // the required info is returned as a Texture struct.
-    vector<Texture> loadMaterialTextures(aiMaterial* mat, aiTextureType type, string typeName);
+    vector<Texture> loadMaterialTextures(aiMaterial* mat, aiTextureType type, string typeName, const aiScene* scene);
 };
 
 #endif
