@@ -75,6 +75,9 @@ uniform vec3 rimColor = vec3(1.0);
 uniform float rimPower = 3.0;
 uniform float rimIntensity = 0.5;
 
+// pixels with alpha below this are discarded (fixes black borders on hair/feathers)
+const float ALPHA_CUTOFF = 0.5;
+
 float computeToonIntensity(float dotProduct);
 void CalcDirLight(DirLight light, vec3 normal, vec3 viewDir,
                    out vec3 ambient, out vec3 diffuse, out vec3 specular);
@@ -83,10 +86,15 @@ void CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, v
 vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec3 texColor);
 
 void main()
-{    
+{
+    // sample once, discard transparent pixels, reuse the color below
+    vec4 texSample = texture(texture_diffuse1, TexCoords);
+    if (texSample.a < ALPHA_CUTOFF)
+        discard;
+    vec3 texColor = texSample.rgb;
+
     if (gLightingEnabled)
     {
-        vec3 texColor = texture(texture_diffuse1, TexCoords).rgb;
         vec3 norm = normalize(Normal);
         vec3 viewDir = normalize(viewPos - FragPos);
     
@@ -142,7 +150,6 @@ void main()
     }
     else
     {
-        vec3 texColor = texture(texture_diffuse1, TexCoords).rgb;
         FragColor = vec4(texColor, 1.0);
     }
 }
