@@ -45,6 +45,8 @@ int main()
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	input.attach(window);	// cursor and scroll callbacks
 
+	glfwSwapInterval(1);	// sync buffer swaps to the monitor's refresh rate to fix screnn tearing
+
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
