@@ -11,6 +11,7 @@ void Input::attach(GLFWwindow* window)
     glfwSetWindowUserPointer(window, this);
     glfwSetCursorPosCallback(window, cursorPosCallback);
     glfwSetScrollCallback(window, scrollCallback);
+    glfwSetKeyCallback(window, keyCallback);
 }
 
 void Input::processInput(GLFWwindow* window)
@@ -66,6 +67,7 @@ void Input::toggleFullscreen(GLFWwindow* window)
     isFullscreen = !isFullscreen;
 }
 
+// ------------------------------------------------------------------------
 void Input::onCursorPos(GLFWwindow* window, double x, double y)
 {
     // the first event only records the position, so the camera doesn't jump
@@ -90,6 +92,19 @@ void Input::onScroll(double yoffset)
     camera.ProcessMouseScroll(static_cast<float>(yoffset));
 }
 
+void Input::onKey(GLFWwindow* window, int key, int action, int mods)
+{
+    if (action != GLFW_PRESS) return;
+
+    switch (key)
+    {
+    case GLFW_KEY_F11: toggleFullscreen(window); break;
+    default: break;
+    }
+}
+
+
+// ------------------------------------------------------------------------
 void Input::cursorPosCallback(GLFWwindow* window, double x, double y)
 {
     if (Input* self = static_cast<Input*>(glfwGetWindowUserPointer(window)))
@@ -100,4 +115,10 @@ void Input::scrollCallback(GLFWwindow* window, double /*xoffset*/, double yoffse
 {
     if (Input* self = static_cast<Input*>(glfwGetWindowUserPointer(window)))
         self->onScroll(yoffset);
+}
+
+void Input::keyCallback(GLFWwindow* window, int key, int /*scancode*/, int action, int mods)
+{
+    if (Input* self = static_cast<Input*>(glfwGetWindowUserPointer(window)))
+        self->onKey(window, key, action, mods);
 }

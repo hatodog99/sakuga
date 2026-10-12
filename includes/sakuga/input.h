@@ -41,9 +41,11 @@ private:
 
     void onCursorPos(GLFWwindow* window, double x, double y);
     void onScroll(double yoffset);
+    void onKey(GLFWwindow* window, int key, int action, int mods);
 
     static void cursorPosCallback(GLFWwindow* window, double x, double y);
     static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
+    static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 };
 
 #endif
