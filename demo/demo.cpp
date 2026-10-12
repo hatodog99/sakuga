@@ -22,7 +22,7 @@ Camera camera(cameraPos);
 float deltaTime = 0.0f;
 float lastFrameTime = 0.0f;
 
-Input input(camera, deltaTime);
+Input input(camera, deltaTime);	
 
 int main()
 {
@@ -45,7 +45,7 @@ int main()
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	input.attach(window);	// cursor and scroll callbacks
 
-	glfwSwapInterval(1);	// sync buffer swaps to the monitor's refresh rate to fix screnn tearing
+	glfwSwapInterval(1);	// enable vsync to fix screnn tearing
 
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 

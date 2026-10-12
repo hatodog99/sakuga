@@ -16,7 +16,7 @@ add_executable(sakuga
     includes/sakuga/input.cpp
     includes/sakuga/mesh.cpp
     includes/sakuga/model.cpp
-    includes/sakuga/shaders.cpp
+    includes/sakuga/shader.cpp
 )
 
 target_include_directories(sakuga PRIVATE
