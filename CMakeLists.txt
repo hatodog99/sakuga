@@ -12,8 +12,11 @@ find_package(assimp REQUIRED)
 add_executable(sakuga
     demo/demo.cpp
     includes/glad/glad.c
-    includes/sakuga/shaders.cpp
+    includes/sakuga/camera.cpp
     includes/sakuga/input.cpp
+    includes/sakuga/mesh.cpp
+    includes/sakuga/model.cpp
+    includes/sakuga/shaders.cpp
 )
 
 target_include_directories(sakuga PRIVATE
