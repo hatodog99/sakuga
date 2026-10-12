@@ -9,19 +9,14 @@
 #include <iostream>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void mouse_callback(GLFWwindow* window, double xPosIn, double yPosIn);
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 
 // screen
 unsigned int SCR_WIDTH = 853;
 unsigned int SCR_HEIGHT = 480;
 
-// camera (Input drives it: orbit / pan / zoom around a target point)
+// camera (driven by Input: WASD, mouse look, scroll zoom)
 glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
 Camera camera(cameraPos);
-float lastX = (float)SCR_WIDTH / 2.0f;
-float lastY = (float)SCR_HEIGHT / 2.0f;
-bool firstMouseInput = true;
 
 // frame times
 float deltaTime = 0.0f;
@@ -48,8 +43,7 @@ int main()
 	}
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-	glfwSetCursorPosCallback(window, mouse_callback);
-	glfwSetScrollCallback(window, scroll_callback);
+	input.attach(window);	// cursor and scroll callbacks
 
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
@@ -62,7 +56,7 @@ int main()
 	glEnable(GL_DEPTH_TEST);
 
 	Shader lightShader("resources/shaders/light.vs.glsl", "resources/shaders/light.fs.glsl");
-	Model twoB("resources/objects/2B/2B-1.glb");
+	Model twoB("resources/objects/2B/2B-no-skirt-1.glb");
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -86,6 +80,7 @@ int main()
 		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), aspect, zNear, zFar);
 		glm::mat4 view = camera.GetViewMatrix();
 		glm::mat4 model = glm::mat4(1.0f);
+		model = glm::translate(model, glm::vec3(0.0f, -0.8f, 0.0f));
 
 		lightShader.setMat4("projection", projection);
 		lightShader.setMat4("view", view);
@@ -105,30 +100,4 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 	SCR_WIDTH = width;
 	SCR_HEIGHT = height;
 	glViewport(0, 0, width, height);
-}
-
-void mouse_callback(GLFWwindow* window, double xPosIn, double yPosIn)
-{
-	float xpos = static_cast<float>(xPosIn);
-	float ypos = static_cast<float>(yPosIn);
-
-	if (firstMouseInput)
-	{
-		lastX = xpos;
-		lastY = ypos;
-		firstMouseInput = false;
-	}
-
-	float xoffset = xpos - lastX;
-	float yoffset = lastY - ypos;
-
-	lastX = xpos;
-	lastY = ypos;
-
-	camera.ProcessMouseMovement(xoffset, yoffset);
-}
-
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
-{
-	camera.ProcessMouseScroll(static_cast<float>(yoffset));
 }

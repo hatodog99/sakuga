@@ -21,6 +21,7 @@ public:
 
     Input(Camera& camera, float& deltaTime, float inputCooldownTime = 0.05f);
 
+    void attach(GLFWwindow* window);    // registers the mouse and scroll callbacks
     void processInput(GLFWwindow* window);
 
 private:
@@ -32,7 +33,17 @@ private:
     bool isFullscreen = false;
     int windowedX = 0, windowedY = 0, windowedWidth = 0, windowedHeight = 0;
 
+    bool firstInput = true;
+    double lastX = 0.0;
+    double lastY = 0.0;
+
     void toggleFullscreen(GLFWwindow* window);
+
+    void onCursorPos(GLFWwindow* window, double x, double y);
+    void onScroll(double yoffset);
+
+    static void cursorPosCallback(GLFWwindow* window, double x, double y);
+    static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 };
 
 #endif

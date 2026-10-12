@@ -5,6 +5,14 @@ Input::Input(Camera& camera, float& deltaTime, float inputCooldownTime)
 {
 }
 
+void Input::attach(GLFWwindow* window)
+{
+    // GLFW callbacks are plain functions; the user pointer is how they find this Input again
+    glfwSetWindowUserPointer(window, this);
+    glfwSetCursorPosCallback(window, cursorPosCallback);
+    glfwSetScrollCallback(window, scrollCallback);
+}
+
 void Input::processInput(GLFWwindow* window)
 {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
@@ -56,4 +64,40 @@ void Input::toggleFullscreen(GLFWwindow* window)
     else
         glfwSetWindowMonitor(window, NULL, windowedX, windowedY, windowedWidth, windowedHeight, 0);
     isFullscreen = !isFullscreen;
+}
+
+void Input::onCursorPos(GLFWwindow* window, double x, double y)
+{
+    // the first event only records the position, so the camera doesn't jump
+    if (firstInput)
+    {
+        lastX = x;
+        lastY = y;
+        firstInput = false;
+    }
+
+    float xoffset = static_cast<float>(x - lastX);
+    float yoffset = static_cast<float>(lastY - y);  // reversed: window y goes top to bottom
+
+    lastX = x;
+    lastY = y;
+
+    camera.ProcessMouseMovement(xoffset, yoffset);
+}
+
+void Input::onScroll(double yoffset)
+{
+    camera.ProcessMouseScroll(static_cast<float>(yoffset));
+}
+
+void Input::cursorPosCallback(GLFWwindow* window, double x, double y)
+{
+    if (Input* self = static_cast<Input*>(glfwGetWindowUserPointer(window)))
+        self->onCursorPos(window, x, y);
+}
+
+void Input::scrollCallback(GLFWwindow* window, double /*xoffset*/, double yoffset)
+{
+    if (Input* self = static_cast<Input*>(glfwGetWindowUserPointer(window)))
+        self->onScroll(yoffset);
 }
