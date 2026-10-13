@@ -9,6 +9,7 @@
 #include <iostream>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+void updatePerformanceCounter(GLFWwindow* window);
 
 // screen
 unsigned int SCR_WIDTH = 853;
@@ -45,7 +46,7 @@ int main()
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	input.attach(window);	// cursor and scroll callbacks
 
-	glfwSwapInterval(1);	// enable vsync to fix screnn tearing
+	glfwSwapInterval(0);	// disable vsync accurate fps measurement
 
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
@@ -91,11 +92,35 @@ int main()
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
+
+		updatePerformanceCounter(window);
 	}
 
 	glfwTerminate();
 	return 0;
 }
+
+void updatePerformanceCounter(GLFWwindow* window)
+{
+	static double lastTime = glfwGetTime();
+	static int frameCount = 0;
+
+	double currentTime = glfwGetTime();
+	frameCount++;
+
+	if (currentTime - lastTime >= 1.0)
+	{
+		float fps = (float)frameCount / (currentTime - lastTime);
+		float msPerFrame = (currentTime - lastTime) * 1000.0f / (float)frameCount;
+
+		std::string title = "demo | fps: " + std::to_string((int)fps) + " | ms/frame: " + std::to_string(msPerFrame);
+		glfwSetWindowTitle(window, title.c_str());
+
+		frameCount = 0;
+		lastTime = currentTime;
+	}
+}
+
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {

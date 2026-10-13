@@ -65,6 +65,7 @@ void Input::toggleFullscreen(GLFWwindow* window)
     else
         glfwSetWindowMonitor(window, NULL, windowedX, windowedY, windowedWidth, windowedHeight, 0);
     isFullscreen = !isFullscreen;
+    glfwSwapInterval(isFullscreen ? 1 : 0);	// enable vsync to fix screen tearing in fullscreen mode
 }
 
 // ------------------------------------------------------------------------
