@@ -31,10 +31,10 @@ namespace shader_config
         shader.setVec3("dirLight.color", color);
     }
 
-    void applyOutline(Shader& shader, const glm::vec3& color, float width, const glm::mat4& projection, const glm::mat4& view)
+    void applyOutline(Shader& shader, Outline& outline, glm::vec3& color, const glm::mat4& projection, const glm::mat4& view)
     {
         shader.setVec3("outlineColor", color);
-        shader.setFloat("outlineWidth", width);
+        shader.setFloat("outlineWidth", outline.width);
         shader.setMat4("projection", projection);
         shader.setMat4("view", view);
     }

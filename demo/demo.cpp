@@ -70,8 +70,9 @@ int main()
 	// shader unforms
 	DirLight dirLight;
 	Material material;
+	Outline outline;
+
 	const float modelScale = 1.0f;
-	const float outlineWidth = 0.002f;	// world units: outline.vs.glsl extrudes along the normal in world space
 
 	// render loop
 	while (!glfwWindowShouldClose(window))
@@ -132,7 +133,7 @@ int main()
 			glm::vec3 outlineColor = input.toggleBackground ? colors::whiteOutline : colors::darkBrownOutline;
 
 			outlineShader.use();
-			shader_config::applyOutline(outlineShader, outlineColor, outlineWidth, projection, view);
+			shader_config::applyOutline(outlineShader, outline, outlineColor, projection, view);
 			outlineShader.setMat4("model", model);
 			twoB.Draw(outlineShader);
 
