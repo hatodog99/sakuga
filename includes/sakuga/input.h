@@ -11,11 +11,11 @@
 class Input {
 public:
     // toggles that main.cpp reads
-    bool lightingEnabled = true;
-    bool lightMovementEnabled = false;
-    bool cellShadingEnabled = true;
-    bool rimLightingEnabled = true;
-    bool outlineEnabled = true;
+    bool lighting = true;
+    bool lightMovement = false;
+    bool cellShading = true;
+    bool rimLighting = true;
+    bool outline = true;
     bool toggleBackground = true;
     float mixValue = 0.3f;
 
