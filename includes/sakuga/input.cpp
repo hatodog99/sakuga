@@ -99,6 +99,13 @@ void Input::onKey(GLFWwindow* window, int key, int action, int mods)
 
     switch (key)
     {
+    case GLFW_KEY_L: lighting = !lighting; break;
+    case GLFW_KEY_M: lightMovement = !lightMovement; break;
+    case GLFW_KEY_C: cellShading = !cellShading; break;
+    case GLFW_KEY_R: rimLighting = !rimLighting; break;
+    case GLFW_KEY_O: outline = !outline; break;
+    case GLFW_KEY_B: toggleBackground = !toggleBackground; break;
+
     case GLFW_KEY_F11: toggleFullscreen(window); break;
     default: break;
     }

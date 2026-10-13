@@ -59,6 +59,8 @@ int main()
 	}
 
 	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_STENCIL_TEST);
+	glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);	// write the reference value when stencil and depth pass
 
 	Shader lightShader("resources/shaders/light.vs.glsl", "resources/shaders/light.fs.glsl");
 	Shader outlineShader("resources/shaders/outline.vs.glsl", "resources/shaders/outline.fs.glsl");
@@ -130,7 +132,7 @@ int main()
 			glm::vec3 outlineColor = input.toggleBackground ? colors::whiteOutline : colors::darkBrownOutline;
 
 			outlineShader.use();
-			shader_config::applyOutline(outlineShader, outlineColor, outlineWidth, view, projection);
+			shader_config::applyOutline(outlineShader, outlineColor, outlineWidth, projection, view);
 			outlineShader.setMat4("model", model);
 			twoB.Draw(outlineShader);
 
