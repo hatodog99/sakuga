@@ -17,7 +17,7 @@ public:
     bool rimLighting = true;        // R
     bool outline = true;            // O
     bool toggleBackground = true;   // B
-    bool mouseLook = true;
+    bool mouseLook = true;          // TAB
     float mixValue = 0.3f;
 
     Input(Camera& camera, float& deltaTime, float inputCooldownTime = 0.05f);

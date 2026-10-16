@@ -122,9 +122,9 @@ int main()
 
 		// background
 		if (input.toggleBackground)
-			glClearColor(0.05f, 0.05f, 0.05f, 1.0f);	// dark
+			glClearColor(0.10f, 0.10f, 0.10f, 1.0f);	// dark
 		else
-			glClearColor(0.95f, 0.95f, 0.95f, 1.0f);	// light
+			glClearColor(0.90f, 0.90f, 0.90f, 1.0f);	// light
 
 		glStencilMask(0xFF);	// the stencil mask must allow writes or the clear is ignored
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);

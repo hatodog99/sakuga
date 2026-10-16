@@ -113,7 +113,6 @@ void Input::onKey(GLFWwindow* window, int key, int action, int mods)
     case GLFW_KEY_O: outline = !outline; break;
     case GLFW_KEY_B: toggleBackground = !toggleBackground; break;
 
-        // switch between mouse look (cursor hidden and locked) and the UI (cursor free)
     case GLFW_KEY_TAB:
         mouseLook = !mouseLook;
         glfwSetInputMode(window, GLFW_CURSOR, mouseLook ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
