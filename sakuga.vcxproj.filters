@@ -31,6 +31,33 @@
     <ClCompile Include="includes\stb\stb_image.cpp">
       <Filter>includes\stb</Filter>
     </ClCompile>
+    <ClCompile Include="includes\sakuga\gui.cpp">
+      <Filter>includes\sakuga</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\sakuga\shader_config.cpp">
+      <Filter>includes\sakuga</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\imgui\imgui.cpp">
+      <Filter>includes\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\imgui\imgui_demo.cpp">
+      <Filter>includes\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\imgui\imgui_draw.cpp">
+      <Filter>includes\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\imgui\imgui_tables.cpp">
+      <Filter>includes\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\imgui\imgui_widgets.cpp">
+      <Filter>includes\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\imgui\backends\imgui_impl_glfw.cpp">
+      <Filter>includes\imgui\backends</Filter>
+    </ClCompile>
+    <ClCompile Include="includes\imgui\backends\imgui_impl_opengl3.cpp">
+      <Filter>includes\imgui\backends</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="includes\sakuga\input.h">
@@ -1185,6 +1212,36 @@
     <ClInclude Include="includes\stb\stb_image.h">
       <Filter>includes\stb</Filter>
     </ClInclude>
+    <ClInclude Include="includes\sakuga\gui.h">
+      <Filter>includes\sakuga</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\sakuga\shader_config.h">
+      <Filter>includes\sakuga</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\imgui\imconfig.h">
+      <Filter>includes\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\imgui\imgui.h">
+      <Filter>includes\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\imgui\imgui_internal.h">
+      <Filter>includes\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\imgui\imstb_rectpack.h">
+      <Filter>includes\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\imgui\imstb_textedit.h">
+      <Filter>includes\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\imgui\imstb_truetype.h">
+      <Filter>includes\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\imgui\backends\imgui_impl_glfw.h">
+      <Filter>includes\imgui\backends</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\imgui\backends\imgui_impl_opengl3.h">
+      <Filter>includes\imgui\backends</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="demo">
@@ -1261,6 +1318,12 @@
     </Filter>
     <Filter Include="resources\objects\ijichi-nijika">
       <UniqueIdentifier>{45fdcbe3-8ccc-4335-b3d9-fd25d6fb3252}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="includes\imgui">
+      <UniqueIdentifier>{0deb6ae9-ac1f-4f66-b05a-22f002aa0f8d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="includes\imgui\backends">
+      <UniqueIdentifier>{3c1bcd0e-d7b1-4d39-8d26-0a226972102e}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

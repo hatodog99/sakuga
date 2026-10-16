@@ -9,10 +9,33 @@ find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(assimp REQUIRED)
 
+# Dear ImGui (git submodule: git submodule add https://github.com/ocornut/imgui.git includes/imgui)
+set(IMGUI_DIR "${CMAKE_CURRENT_SOURCE_DIR}/includes/imgui")
+if(NOT EXISTS "${IMGUI_DIR}/imgui.h")
+    message(FATAL_ERROR "Dear ImGui not found in ${IMGUI_DIR}. Run: git submodule update --init")
+endif()
+
+# ImGui has no CMake of its own, so build it as a small static library
+add_library(imgui STATIC
+    "${IMGUI_DIR}/imgui.cpp"
+    "${IMGUI_DIR}/imgui_draw.cpp"
+    "${IMGUI_DIR}/imgui_tables.cpp"
+    "${IMGUI_DIR}/imgui_widgets.cpp"
+    "${IMGUI_DIR}/imgui_demo.cpp"
+    "${IMGUI_DIR}/backends/imgui_impl_glfw.cpp"
+    "${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp"
+)
+target_include_directories(imgui PUBLIC
+    "${IMGUI_DIR}"
+    "${IMGUI_DIR}/backends"
+)
+target_link_libraries(imgui PUBLIC glfw ${CMAKE_DL_LIBS})
+
 add_executable(sakuga
     demo/demo.cpp
     includes/glad/glad.c
     includes/sakuga/camera.cpp
+    includes/sakuga/gui.cpp
     includes/sakuga/input.cpp
     includes/sakuga/mesh.cpp
     includes/sakuga/model.cpp
@@ -32,6 +55,7 @@ target_link_libraries(sakuga PRIVATE
     glfw
     OpenGL::GL
     assimp::assimp
+    imgui
     ${CMAKE_DL_LIBS}
 )
 

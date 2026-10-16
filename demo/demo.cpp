@@ -1,21 +1,23 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include <imgui.h>
+
 #include <sakuga/camera.h>
+#include <sakuga/gui.h>
 #include <sakuga/input.h>
 #include <sakuga/model.h>
 #include <sakuga/shader.h>
 #include <sakuga/shader_config.h>
 
+#include <cmath>
 #include <iostream>
-#include <string>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void updatePerformanceCounter(GLFWwindow* window);
 
 // screen
-unsigned int SCR_WIDTH = 853;
-unsigned int SCR_HEIGHT = 480;
+unsigned int SCR_WIDTH = 1280;
+unsigned int SCR_HEIGHT = 720;
 
 // camera (driven by Input: WASD, mouse look, scroll zoom)
 glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
@@ -25,7 +27,7 @@ Camera camera(cameraPos);
 float deltaTime = 0.0f;
 float lastFrameTime = 0.0f;
 
-Input input(camera, deltaTime);	
+Input input(camera, deltaTime);
 
 int main()
 {
@@ -46,9 +48,9 @@ int main()
 	}
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-	input.attach(window);	// cursor and scroll callbacks
+	input.attach(window);	// cursor and scroll callbacks (must come before gui::init)
 
-	glfwSwapInterval(0);	// disable vsync accurate fps measurement
+	glfwSwapInterval(0);	// disable vsync for accurate fps measurement
 
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
@@ -57,6 +59,11 @@ int main()
 		std::cout << "failed to initialize glad" << std::endl;
 		return -1;
 	}
+
+	gui::init(window);
+	float fpsTimer = 0.0f;
+	float displayedFPS = 0.0f;
+	float displayedMs = 0.0f;
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_STENCIL_TEST);
@@ -82,6 +89,36 @@ int main()
 		lastFrameTime = currentFrameTime;
 
 		input.processInput(window);
+
+		// ui (built first, so edits apply to this frame)
+		gui::beginFrame();
+
+		fpsTimer += ImGui::GetIO().DeltaTime;
+
+		if (fpsTimer >= 0.5f)
+		{
+			displayedFPS = ImGui::GetIO().Framerate;
+			displayedMs = displayedFPS > 0.0f
+				? 1000.0f / displayedFPS
+				: 0.0f;
+
+			fpsTimer = 0.0f;
+		}
+
+		ImGui::SetNextWindowBgAlpha(0.6f);
+		ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoNav);	// hitting TAB doesn't affect the gui
+		ImGui::Text("%.1f FPS (%.2f ms)", displayedFPS, displayedMs);
+		ImGui::Separator();
+		ImGui::Checkbox("Lighting", &input.lighting);
+		ImGui::Checkbox("Cell shading", &input.cellShading);
+		ImGui::Checkbox("Rim lighting", &input.rimLighting);
+		ImGui::Checkbox("Outline", &input.outline);
+		ImGui::Checkbox("Light movement", &input.lightMovement);
+		ImGui::Checkbox("Dark background", &input.toggleBackground);
+		ImGui::Separator();
+		ImGui::SliderFloat3("Light direction", &dirLight.direction.x, -2.0f, 2.0f);
+		ImGui::SliderFloat("Shininess", &material.shininess, 1.0f, 128.0f);
+		ImGui::End();
 
 		// background
 		if (input.toggleBackground)
@@ -128,7 +165,7 @@ int main()
 		{
 			glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
 			glStencilMask(0x00);	// don't modify the stencil buffer
-			// depth test stays  so the outline hides behind other objects
+			// depth test stays enabled so the outline hides behind other objects
 
 			glm::vec3 outlineColor = input.toggleBackground ? colors::whiteOutline : colors::darkBrownOutline;
 
@@ -142,37 +179,18 @@ int main()
 			glStencilFunc(GL_ALWAYS, 0, 0xFF);
 		}
 
+		// ui is drawn last so it sits on top of the scene
+		gui::endFrame();
+
 		glfwSwapBuffers(window);
 		glfwPollEvents();
-
-		updatePerformanceCounter(window);
 	}
+
+	gui::shutdown();	// before glfwTerminate
 
 	glfwTerminate();
 	return 0;
 }
-
-void updatePerformanceCounter(GLFWwindow* window)
-{
-	static double lastTime = glfwGetTime();
-	static int frameCount = 0;
-
-	double currentTime = glfwGetTime();
-	frameCount++;
-
-	if (currentTime - lastTime >= 1.0)
-	{
-		float fps = (float)frameCount / (currentTime - lastTime);
-		float msPerFrame = (currentTime - lastTime) * 1000.0f / (float)frameCount;
-
-		std::string title = "demo | fps: " + std::to_string((int)fps) + " | ms/frame: " + std::to_string(msPerFrame);
-		glfwSetWindowTitle(window, title.c_str());
-
-		frameCount = 0;
-		lastTime = currentTime;
-	}
-}
-
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {

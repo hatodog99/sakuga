@@ -397,7 +397,16 @@
     <ClInclude Include="includes\glm\vec3.hpp" />
     <ClInclude Include="includes\glm\vec4.hpp" />
     <ClInclude Include="includes\glm\vector_relational.hpp" />
+    <ClInclude Include="includes\imgui\backends\imgui_impl_glfw.h" />
+    <ClInclude Include="includes\imgui\backends\imgui_impl_opengl3.h" />
+    <ClInclude Include="includes\imgui\imconfig.h" />
+    <ClInclude Include="includes\imgui\imgui.h" />
+    <ClInclude Include="includes\imgui\imgui_internal.h" />
+    <ClInclude Include="includes\imgui\imstb_rectpack.h" />
+    <ClInclude Include="includes\imgui\imstb_textedit.h" />
+    <ClInclude Include="includes\imgui\imstb_truetype.h" />
     <ClInclude Include="includes\sakuga\camera.h" />
+    <ClInclude Include="includes\sakuga\gui.h" />
     <ClInclude Include="includes\sakuga\input.h" />
     <ClInclude Include="includes\glad\glad.h" />
     <ClInclude Include="includes\GLFW\glfw3.h" />
@@ -406,6 +415,7 @@
     <ClInclude Include="includes\sakuga\mesh.h" />
     <ClInclude Include="includes\sakuga\model.h" />
     <ClInclude Include="includes\sakuga\shader.h" />
+    <ClInclude Include="includes\sakuga\shader_config.h" />
     <ClInclude Include="includes\stb\stb_image.h" />
   </ItemGroup>
   <ItemGroup>
@@ -413,11 +423,20 @@
     <ClCompile Include="includes\glad\glad.c" />
     <ClCompile Include="includes\glm\detail\glm.cpp" />
     <ClCompile Include="includes\glm\glm.cppm" />
+    <ClCompile Include="includes\imgui\backends\imgui_impl_glfw.cpp" />
+    <ClCompile Include="includes\imgui\backends\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="includes\imgui\imgui.cpp" />
+    <ClCompile Include="includes\imgui\imgui_demo.cpp" />
+    <ClCompile Include="includes\imgui\imgui_draw.cpp" />
+    <ClCompile Include="includes\imgui\imgui_tables.cpp" />
+    <ClCompile Include="includes\imgui\imgui_widgets.cpp" />
     <ClCompile Include="includes\sakuga\camera.cpp" />
+    <ClCompile Include="includes\sakuga\gui.cpp" />
     <ClCompile Include="includes\sakuga\input.cpp" />
     <ClCompile Include="includes\sakuga\mesh.cpp" />
     <ClCompile Include="includes\sakuga\model.cpp" />
     <ClCompile Include="includes\sakuga\shader.cpp" />
+    <ClCompile Include="includes\sakuga\shader_config.cpp" />
     <ClCompile Include="includes\stb\stb_image.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -694,6 +713,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir)includes\imgui;$(ProjectDir)includes\imgui\backends;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -716,6 +736,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir)includes\imgui;$(ProjectDir)includes\imgui\backends;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

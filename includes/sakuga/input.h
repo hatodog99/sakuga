@@ -17,12 +17,13 @@ public:
     bool rimLighting = true;        // R
     bool outline = true;            // O
     bool toggleBackground = true;   // B
+    bool mouseLook = true;
     float mixValue = 0.3f;
 
     Input(Camera& camera, float& deltaTime, float inputCooldownTime = 0.05f);
 
     void attach(GLFWwindow* window);        // registers the mouse and scroll callbacks
-    void processInput(GLFWwindow* window);  // movement inputs: W, A, S, D, L_SHIFT, SPACE
+    void processInput(GLFWwindow* window);  // movement inputs: W, A, S, D, LEFT_SHIFT, SPACE
 
 private:
     Camera& camera;        // references: operate on main's real objects

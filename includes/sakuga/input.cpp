@@ -65,12 +65,16 @@ void Input::toggleFullscreen(GLFWwindow* window)
     else
         glfwSetWindowMonitor(window, NULL, windowedX, windowedY, windowedWidth, windowedHeight, 0);
     isFullscreen = !isFullscreen;
-    glfwSwapInterval(isFullscreen ? 1 : 0);	// enable vsync to fix screen tearing in fullscreen mode
+    glfwSwapInterval(isFullscreen ? 1 : 0); // enable vsync to fix screen tearing in fullscreen mode
 }
 
 // ------------------------------------------------------------------------
 void Input::onCursorPos(GLFWwindow* window, double x, double y)
 {
+    // while the UI is in use (cursor free) the mouse must not turn the camera
+    if (!mouseLook)
+        return;
+
     // the first event only records the position, so the camera doesn't jump
     if (firstInput)
     {
@@ -90,6 +94,9 @@ void Input::onCursorPos(GLFWwindow* window, double x, double y)
 
 void Input::onScroll(double yoffset)
 {
+    if (!mouseLook)
+        return;
+
     camera.ProcessMouseScroll(static_cast<float>(yoffset));
 }
 
@@ -106,11 +113,17 @@ void Input::onKey(GLFWwindow* window, int key, int action, int mods)
     case GLFW_KEY_O: outline = !outline; break;
     case GLFW_KEY_B: toggleBackground = !toggleBackground; break;
 
+        // switch between mouse look (cursor hidden and locked) and the UI (cursor free)
+    case GLFW_KEY_TAB:
+        mouseLook = !mouseLook;
+        glfwSetInputMode(window, GLFW_CURSOR, mouseLook ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+        firstInput = true;  // so the camera doesn't jump when mouse look resumes
+        break;
+
     case GLFW_KEY_F11: toggleFullscreen(window); break;
     default: break;
     }
 }
-
 
 // ------------------------------------------------------------------------
 void Input::cursorPosCallback(GLFWwindow* window, double x, double y)
