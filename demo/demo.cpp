@@ -1,7 +1,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-#include <imgui.h>
+#include <imgui/imgui.h>
 
 #include <sakuga/camera.h>
 #include <sakuga/gui.h>

@@ -397,8 +397,9 @@
     <ClInclude Include="includes\glm\vec3.hpp" />
     <ClInclude Include="includes\glm\vec4.hpp" />
     <ClInclude Include="includes\glm\vector_relational.hpp" />
-    <ClInclude Include="includes\imgui\backends\imgui_impl_glfw.h" />
-    <ClInclude Include="includes\imgui\backends\imgui_impl_opengl3.h" />
+    <ClInclude Include="includes\imgui\backend\imgui_impl_glfw.h" />
+    <ClInclude Include="includes\imgui\backend\imgui_impl_opengl3.h" />
+    <ClInclude Include="includes\imgui\backend\imgui_impl_opengl3_loader.h" />
     <ClInclude Include="includes\imgui\imconfig.h" />
     <ClInclude Include="includes\imgui\imgui.h" />
     <ClInclude Include="includes\imgui\imgui_internal.h" />
@@ -423,8 +424,8 @@
     <ClCompile Include="includes\glad\glad.c" />
     <ClCompile Include="includes\glm\detail\glm.cpp" />
     <ClCompile Include="includes\glm\glm.cppm" />
-    <ClCompile Include="includes\imgui\backends\imgui_impl_glfw.cpp" />
-    <ClCompile Include="includes\imgui\backends\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="includes\imgui\backend\imgui_impl_glfw.cpp" />
+    <ClCompile Include="includes\imgui\backend\imgui_impl_opengl3.cpp" />
     <ClCompile Include="includes\imgui\imgui.cpp" />
     <ClCompile Include="includes\imgui\imgui_demo.cpp" />
     <ClCompile Include="includes\imgui\imgui_draw.cpp" />

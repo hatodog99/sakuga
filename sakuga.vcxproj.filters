@@ -52,11 +52,11 @@
     <ClCompile Include="includes\imgui\imgui_widgets.cpp">
       <Filter>includes\imgui</Filter>
     </ClCompile>
-    <ClCompile Include="includes\imgui\backends\imgui_impl_glfw.cpp">
-      <Filter>includes\imgui\backends</Filter>
+    <ClCompile Include="includes\imgui\backend\imgui_impl_glfw.cpp">
+      <Filter>includes\imgui\backend</Filter>
     </ClCompile>
-    <ClCompile Include="includes\imgui\backends\imgui_impl_opengl3.cpp">
-      <Filter>includes\imgui\backends</Filter>
+    <ClCompile Include="includes\imgui\backend\imgui_impl_opengl3.cpp">
+      <Filter>includes\imgui\backend</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -1218,11 +1218,14 @@
     <ClInclude Include="includes\sakuga\shader_config.h">
       <Filter>includes\sakuga</Filter>
     </ClInclude>
-    <ClInclude Include="includes\imgui\imconfig.h">
-      <Filter>includes\imgui</Filter>
-    </ClInclude>
     <ClInclude Include="includes\imgui\imgui.h">
       <Filter>includes\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\imgui\backend\imgui_impl_glfw.h">
+      <Filter>includes\imgui\backend</Filter>
+    </ClInclude>
+    <ClInclude Include="includes\imgui\backend\imgui_impl_opengl3.h">
+      <Filter>includes\imgui\backend</Filter>
     </ClInclude>
     <ClInclude Include="includes\imgui\imgui_internal.h">
       <Filter>includes\imgui</Filter>
@@ -1236,11 +1239,11 @@
     <ClInclude Include="includes\imgui\imstb_truetype.h">
       <Filter>includes\imgui</Filter>
     </ClInclude>
-    <ClInclude Include="includes\imgui\backends\imgui_impl_glfw.h">
-      <Filter>includes\imgui\backends</Filter>
+    <ClInclude Include="includes\imgui\imconfig.h">
+      <Filter>includes\imgui</Filter>
     </ClInclude>
-    <ClInclude Include="includes\imgui\backends\imgui_impl_opengl3.h">
-      <Filter>includes\imgui\backends</Filter>
+    <ClInclude Include="includes\imgui\backend\imgui_impl_opengl3_loader.h">
+      <Filter>includes\imgui\backend</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -1320,10 +1323,10 @@
       <UniqueIdentifier>{45fdcbe3-8ccc-4335-b3d9-fd25d6fb3252}</UniqueIdentifier>
     </Filter>
     <Filter Include="includes\imgui">
-      <UniqueIdentifier>{0deb6ae9-ac1f-4f66-b05a-22f002aa0f8d}</UniqueIdentifier>
+      <UniqueIdentifier>{5b086768-d37b-47cc-834d-f64325b6a2d7}</UniqueIdentifier>
     </Filter>
-    <Filter Include="includes\imgui\backends">
-      <UniqueIdentifier>{3c1bcd0e-d7b1-4d39-8d26-0a226972102e}</UniqueIdentifier>
+    <Filter Include="includes\imgui\backend">
+      <UniqueIdentifier>{f386c039-785d-4997-88b3-7c70a6b96d18}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
