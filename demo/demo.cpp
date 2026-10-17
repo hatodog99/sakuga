@@ -106,13 +106,17 @@ int main()
 		}
 
 		ImGui::SetNextWindowBgAlpha(0.6f);
-		ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoNav);	// hitting TAB doesn't affect the gui
+		ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoNav);	// so hitting TAB doesn't affect the gui
 		ImGui::Text("%.1f FPS (%.2f ms)", displayedFPS, displayedMs);
 		ImGui::Separator();
 		ImGui::Checkbox("Lighting", &input.lighting);
 		ImGui::Checkbox("Cell shading", &input.cellShading);
 		ImGui::Checkbox("Rim lighting", &input.rimLighting);
+
 		ImGui::Checkbox("Outline", &input.outline);
+		ImGui::SameLine();
+		ImGui::SliderFloat("##outlineWidth", &outline.width, 0.0f, 0.01f, "%.4f", ImGuiSliderFlags_AlwaysClamp);
+
 		ImGui::Checkbox("Light movement", &input.lightMovement);
 		ImGui::Checkbox("Dark background", &input.toggleBackground);
 		ImGui::Separator();
