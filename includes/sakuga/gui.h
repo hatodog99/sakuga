@@ -9,6 +9,8 @@ namespace gui
     void beginFrame();
     void endFrame();
     void shutdown();
+
+    void setMouseEnabled(bool enabled);
 }
 
 #endif

@@ -35,4 +35,12 @@ namespace gui
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
     }
+
+    void setMouseEnabled(bool enabled) {
+        ImGuiIO& io = ImGui::GetIO();
+        if (enabled)
+            io.ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
+        else
+            io.ConfigFlags |= ImGuiConfigFlags_NoMouse;
+    }
 }

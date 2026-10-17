@@ -91,6 +91,7 @@ int main()
 		input.processInput(window);
 
 		// ui (built first, so edits apply to this frame)
+		gui::setMouseEnabled(!input.mouseLook);   // the panel only reacts to the mouse in UI mode
 		gui::beginFrame();
 
 		fpsTimer += ImGui::GetIO().DeltaTime;
