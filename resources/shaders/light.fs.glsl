@@ -132,7 +132,7 @@ void main()
             float toon = ceil(pow(toon_intensity, toon_bias) * float(toon_color_levels)) * toon_scale_factor;
 
             totalDiffuse = (toon_intensity > 0.0) ? totalDiffuse * (toon / toon_intensity) : vec3(0.0);
-            totalSpecular = vec3(0.0);
+            // totalSpecular = vec3(0.0);
         }
     
         vec3 rim = vec3(0.0);
@@ -159,8 +159,10 @@ void CalcDirLight(DirLight light, vec3 normal, vec3 viewDir,
 {
     vec3 lightDir = normalize(-light.direction);
     float diff = max(dot(normal, lightDir), 0.0);
-    vec3 reflectDir = reflect(-lightDir, normal);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+
+    vec3 halfwayDir = normalize(lightDir + viewDir);
+    float spec = pow(max(dot(normal, halfwayDir), 0.0), material.shininess);
+    spec *= step(0.0, diff);   // no highlight on surfaces facing away from the light
 
     ambient = light.ambient * light.color;
     diffuse = light.diffuse * diff * light.color;
@@ -173,8 +175,10 @@ void CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, v
 {
     vec3 lightDir = normalize(light.position - fragPos);
     float diff = max(dot(normal, lightDir), 0.0);
-    vec3 reflectDir = reflect(-lightDir, normal);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+
+    vec3 halfwayDir = normalize(lightDir + viewDir);
+    float spec = pow(max(dot(normal, halfwayDir), 0.0), material.shininess);
+    spec *= step(0.0, diff);   // no highlight on surfaces facing away from the light
 
     float distance = length(light.position - fragPos);
     float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));    
@@ -188,8 +192,10 @@ vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec
 {
     vec3 lightDir = normalize(light.position - fragPos);
     float diff = max(dot(normal, lightDir), 0.0);
-    vec3 reflectDir = reflect(-lightDir, normal);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+
+    vec3 halfwayDir = normalize(lightDir + viewDir);
+    float spec = pow(max(dot(normal, halfwayDir), 0.0), material.shininess);
+    spec *= step(0.0, diff);   // no highlight on surfaces facing away from the light
 
     float distance = length(light.position - fragPos);
     float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));    
