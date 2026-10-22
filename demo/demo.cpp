@@ -16,8 +16,8 @@
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 
 // screen
-unsigned int SCR_WIDTH = 1280;
-unsigned int SCR_HEIGHT = 720;
+unsigned int SCR_WIDTH = 1024;
+unsigned int SCR_HEIGHT = 576;
 
 // camera (driven by Input: WASD, mouse look, scroll zoom)
 glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
@@ -61,7 +61,10 @@ int main()
 	}
 
 	gui::init(window);
+	 
+	// fps display
 	float fpsTimer = 0.0f;
+	int fpsFrames = 0;
 	float displayedFPS = 0.0f;
 	float displayedMs = 0.0f;
 
@@ -81,6 +84,8 @@ int main()
 
 	const float modelScale = 1.0f;
 
+	lastFrameTime = static_cast<float>(glfwGetTime());	// avoid first huge deltaTime
+
 	// render loop
 	while (!glfwWindowShouldClose(window))
 	{
@@ -91,19 +96,17 @@ int main()
 		input.processInput(window);
 
 		// ui (built first, so edits apply to this frame)
-		gui::setMouseEnabled(!input.mouseLook);   // the panel only reacts to the mouse in UI mode
+		gui::setMouseEnabled(!input.mouseLook);
 		gui::beginFrame();
 
-		fpsTimer += ImGui::GetIO().DeltaTime;
-
+		fpsTimer += deltaTime;
+		++fpsFrames;
 		if (fpsTimer >= 0.5f)
 		{
-			displayedFPS = ImGui::GetIO().Framerate;
-			displayedMs = displayedFPS > 0.0f
-				? 1000.0f / displayedFPS
-				: 0.0f;
-
+			displayedMs = (fpsTimer / fpsFrames) * 1000.0f;
+			displayedFPS = fpsFrames / fpsTimer;
 			fpsTimer = 0.0f;
+			fpsFrames = 0.0f;
 		}
 
 		ImGui::SetNextWindowBgAlpha(0.6f);
@@ -136,9 +139,7 @@ int main()
 
 		// view/projection transformations
 		float aspect = (SCR_HEIGHT > 0) ? (float)SCR_WIDTH / (float)SCR_HEIGHT : 1.0f;
-		float nearPlane = 0.1f;
-		float farPlane = 100.0f;
-		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), aspect, nearPlane, farPlane);
+		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), aspect, 0.1f, 100.0f);
 		glm::mat4 view = camera.GetViewMatrix();
 
 		// moving light
