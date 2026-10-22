@@ -72,6 +72,8 @@ int main()
 	glEnable(GL_STENCIL_TEST);
 	glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);	// write the reference value when stencil and depth pass
 
+	glEnable(GL_CULL_FACE);
+
 	Shader lightShader("resources/shaders/light.vs.glsl", "resources/shaders/light.fs.glsl");
 	Shader outlineShader("resources/shaders/outline.vs.glsl", "resources/shaders/outline.fs.glsl");
 
