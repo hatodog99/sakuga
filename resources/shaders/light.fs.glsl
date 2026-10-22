@@ -78,6 +78,8 @@ uniform float rimIntensity = 0.5;
 // pixels with alpha below this are discarded (fixes black borders on hair/feathers)
 const float ALPHA_CUTOFF = 0.5;
 
+float gamma = 2.2f;
+
 float computeToonIntensity(float dotProduct);
 void CalcDirLight(DirLight light, vec3 normal, vec3 viewDir,
                    out vec3 ambient, out vec3 diffuse, out vec3 specular);
@@ -92,6 +94,8 @@ void main()
     if (texSample.a < ALPHA_CUTOFF)
         discard;
     vec3 texColor = texSample.rgb;
+
+    vec3 result;
 
     if (gLightingEnabled)
     {
@@ -144,14 +148,15 @@ void main()
             rim = rimColor * rimFactor * rimIntensity;
         }
 
-        vec3 result = (totalAmbient + totalDiffuse + totalSpecular + rim) * texColor;
-        result = clamp(result, 0.0, 1.0);
-        FragColor = vec4(result, 1.0);
+        result = (totalAmbient + totalDiffuse + totalSpecular + rim) * texColor;
     }
     else
     {
-        FragColor = vec4(texColor, 1.0);
+        result = texColor;
     }
+
+    result = clamp(result, 0.0, 1.0);
+    FragColor = vec4(pow(result, vec3(1.0/gamma)), 1.0); // linear -> sRGB
 }
 
 void CalcDirLight(DirLight light, vec3 normal, vec3 viewDir,
