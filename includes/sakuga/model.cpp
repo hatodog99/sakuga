@@ -302,18 +302,17 @@ unsigned int TextureFromFile(const char* path, const string& directory, bool gam
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
     GLenum internalFormat = (nrComponents == 4) ? GL_SRGB8_ALPHA8 : GL_SRGB8;
-    GLenum dataFormat = (nrComponents == 4) ? GL_RGBA : GL_RGB;
 
     if (pixels)
     {
         // always loaded as 4 channels (RGBA), so a missing alpha channel becomes fully opaque
-        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, dataFormat, GL_UNSIGNED_BYTE, pixels);
+        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     }
     else
     {
         std::cout << "Texture failed to load path: " << path << std::endl;
         const unsigned char white[4] = { 255, 255, 255, 255 };
-        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, 1, 1, 0, dataFormat, GL_UNSIGNED_BYTE, white);
+        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, white);
     }
     glGenerateMipmap(GL_TEXTURE_2D);
 
