@@ -35,6 +35,7 @@ namespace shader_config
     {
         shader.setVec3("outlineColor", color);
         shader.setFloat("outlineWidth", outline.width);
+        shader.setFloat("depthBias", outline.depthBias);
         shader.setMat4("projection", projection);
         shader.setMat4("view", view);
     }

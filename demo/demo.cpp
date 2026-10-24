@@ -73,11 +73,13 @@ int main()
 	glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);	// write the reference value when stencil and depth pass
 
 	glEnable(GL_CULL_FACE);
+	glFrontFace(GL_CCW);
 
 	Shader lightShader("resources/shaders/light.vs.glsl", "resources/shaders/light.fs.glsl");
 	Shader outlineShader("resources/shaders/outline.vs.glsl", "resources/shaders/outline.fs.glsl");
 
-	Model twoB("resources/objects/2B/2B-no-skirt-1.glb");
+	Model object("resources/objects/2B/2B-no-skirt-1.glb");
+	//Model object("resources/objects/ijichi-nijika/1.fbx");
 
 	// shader unforms
 	DirLight dirLight;
@@ -114,18 +116,23 @@ int main()
 		ImGui::SetNextWindowBgAlpha(0.6f);
 		ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoNav);	// so hitting TAB doesn't affect the gui
 		ImGui::Text("%.1f FPS (%.2f ms)", displayedFPS, displayedMs);
+
 		ImGui::Separator();
+		
 		ImGui::Checkbox("Lighting", &input.lighting);
 		ImGui::Checkbox("Cell shading", &input.cellShading);
 		ImGui::Checkbox("Rim lighting", &input.rimLighting);
 
 		ImGui::Checkbox("Outline", &input.outline);
 		ImGui::SameLine();
-		ImGui::SliderFloat("##outlineWidth", &outline.width, 0.0f, 0.01f, "%.4f", ImGuiSliderFlags_AlwaysClamp);
+		ImGui::SetNextItemWidth(-1.0f);
+		ImGui::SliderFloat2("##outline", &outline.width, 0.0f, 0.05f, "%.4f");
 
 		ImGui::Checkbox("Light movement", &input.lightMovement);
 		ImGui::Checkbox("Dark background", &input.toggleBackground);
+
 		ImGui::Separator();
+
 		ImGui::SliderFloat3("Light direction", &dirLight.direction.x, -2.0f, 2.0f);
 		ImGui::SliderFloat("Shininess", &material.shininess, 1.0f, 128.0f);
 		ImGui::End();
@@ -136,7 +143,6 @@ int main()
 		else
 			glClearColor(0.90f, 0.90f, 0.90f, 1.0f);	// light
 
-		glStencilMask(0xFF);	// the stencil mask must allow writes or the clear is ignored
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 		// view/projection transformations
@@ -156,35 +162,27 @@ int main()
 		model = glm::translate(model, glm::vec3(0.0f, -0.8f, 0.0f));
 		model = glm::scale(model, glm::vec3(modelScale));
 
-		// pass 1: render the model and write 1s into the stencil buffer
-		glStencilFunc(GL_ALWAYS, 1, 0xFF);
-		glStencilMask(0xFF);
-
 		lightShader.use();
 		shader_config::applyCamera(lightShader, projection, view, camera.Position);
 		shader_config::applyLightingToggles(lightShader, input.lighting, input.cellShading, input.rimLighting);
 		shader_config::applyMaterial(lightShader, material);
 		shader_config::applyDirLight(lightShader, dirLight, colors::whiteLight);
 		lightShader.setMat4("model", model);
-		twoB.Draw(lightShader);
+		object.Draw(lightShader);
 
-		// pass 2: render the extruded model only where the stencil is not 1
 		if (input.outline)
 		{
-			glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
-			glStencilMask(0x00);	// don't modify the stencil buffer
-			// depth test stays enabled so the outline hides behind other objects
+			glCullFace(GL_FRONT);
 
-			glm::vec3 outlineColor = input.toggleBackground ? colors::whiteOutline : colors::darkBrownOutline;
+			glm::vec3 outlineColor = input.toggleBackground ? colors::whiteOutline : colors::blackOutline;
 
 			outlineShader.use();
 			shader_config::applyOutline(outlineShader, outline, outlineColor, projection, view);
 			outlineShader.setMat4("model", model);
-			twoB.Draw(outlineShader);
+			outlineShader.setFloat("aspect", (float)SCR_WIDTH / (float)SCR_HEIGHT);
+			object.Draw(outlineShader);
 
-			// reset state
-			glStencilMask(0xFF);
-			glStencilFunc(GL_ALWAYS, 0, 0xFF);
+			glCullFace(GL_BACK);
 		}
 
 		// ui is drawn last so it sits on top of the scene

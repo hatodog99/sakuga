@@ -9,13 +9,22 @@ uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
-uniform float outlineWidth;
+uniform float outlineWidth;   // e.g. 0.002 - 0.01
+uniform float aspect;         // viewport width / height
+uniform float depthBias;      // try 0.0005 - 0.005
 
 void main()
 {
-    vec3 FragPos = vec3(model * vec4(aPos, 1.0));
-    vec3 Normal = normalize(mat3(transpose(inverse(model))) * aNormal);
     TexCoords = aTexCoords;
 
-    gl_Position = projection * view * vec4(FragPos + Normal * outlineWidth, 1.0);
-}   
+    vec4 clipPos = projection * view * model * vec4(aPos, 1.0);
+
+    mat3 normalMat = transpose(inverse(mat3(view * model)));
+    vec3 viewNormal = normalize(normalMat * aNormal);
+    vec2 dir = normalize((projection * vec4(viewNormal, 0.0)).xy);
+    dir.x /= aspect;
+
+    clipPos.xy += dir * outlineWidth * clipPos.w;
+    clipPos.z  += depthBias * clipPos.w;   // positive = farther from camera
+    gl_Position = clipPos;
+}
