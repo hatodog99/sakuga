@@ -38,6 +38,7 @@ int main()
 #ifdef __APPLE__
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
+	glfwWindowHint(GLFW_SAMPLES, 4);
 
 	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "demo", NULL, NULL);
 	if (window == NULL)
@@ -60,6 +61,15 @@ int main()
 		return -1;
 	}
 
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_STENCIL_TEST);
+	glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);	// write the reference value when stencil and depth pass
+
+	glEnable(GL_CULL_FACE);
+	glFrontFace(GL_CCW);
+
+	glEnable(GL_MULTISAMPLE);
+
 	gui::init(window);
 	 
 	// fps display
@@ -67,13 +77,6 @@ int main()
 	int fpsFrames = 0;
 	float displayedFPS = 0.0f;
 	float displayedMs = 0.0f;
-
-	glEnable(GL_DEPTH_TEST);
-	glEnable(GL_STENCIL_TEST);
-	glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);	// write the reference value when stencil and depth pass
-
-	glEnable(GL_CULL_FACE);
-	glFrontFace(GL_CCW);
 
 	Shader lightShader("resources/shaders/light.vs.glsl", "resources/shaders/light.fs.glsl");
 	Shader outlineShader("resources/shaders/outline.vs.glsl", "resources/shaders/outline.fs.glsl");
