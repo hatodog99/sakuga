@@ -35,46 +35,52 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 	glViewport(0, 0, width, height);
 }
 
-void loadFloor(unsigned int* VAO, unsigned int* VBO, unsigned int* EBO) {
-	float vertices[] = {
-		//  position           	normal					uv
-		0.5f,  0.5f, 0.0f,		0.0f, 0.0f, 1.0f,		3.0f, 3.0f,  // top right
-		0.5f, -0.5f, 0.0f,		0.0f, 0.0f, 1.0f,		3.0f, 0.0f,  // bottom right
-		-0.5f, -0.5f, 0.0f,		0.0f, 0.0f, 1.0f,		0.0f, 0.0f,  // bottom left
-		-0.5f,  0.5f, 0.0f,		0.0f, 0.0f, 1.0f,		0.0f, 3.0f   // top left
-	};
-	unsigned int indices[] = {  // note that we start from 0!
-		0, 3, 1,   // first triangle
-		1, 3, 2    // second triangle
-	};  
-	glGenVertexArrays(1, VAO);
-	glGenBuffers(1, VBO);
-	glGenBuffers(1, EBO);
+unsigned int floorVAO = 0;
+unsigned int floorVBO;
+unsigned int floorEBO;
+void loadFloor() {
+	if (floorVAO == 0) {
+
+		float vertices[] = {
+			//  position           	normal					uv
+			0.5f,  0.5f, 0.0f,		0.0f, 0.0f, 1.0f,		3.0f, 3.0f,  // top right
+			0.5f, -0.5f, 0.0f,		0.0f, 0.0f, 1.0f,		3.0f, 0.0f,  // bottom right
+			-0.5f, -0.5f, 0.0f,		0.0f, 0.0f, 1.0f,		0.0f, 0.0f,  // bottom left
+			-0.5f,  0.5f, 0.0f,		0.0f, 0.0f, 1.0f,		0.0f, 3.0f   // top left
+		};
+		unsigned int indices[] = {  // note that we start from 0!
+			0, 3, 1,   // first triangle
+			1, 3, 2    // second triangle
+		};  
+		glGenVertexArrays(1, &floorVAO);
+		glGenBuffers(1, &floorVBO);
+		glGenBuffers(1, &floorEBO);
+		
+		glBindVertexArray(floorVAO);
 	
-	glBindVertexArray(*VAO);
-
-	glBindBuffer(GL_ARRAY_BUFFER, *VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-	glEnableVertexAttribArray(2);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0); 
-
-	glBindVertexArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, floorVBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+	
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, floorEBO);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+	
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+		glEnableVertexAttribArray(2);
+	
+		glBindBuffer(GL_ARRAY_BUFFER, 0); 
+	
+		glBindVertexArray(0);
+	}
 }
 
 unsigned int loadTexture(const std::string& path) {
-	unsigned int textureID;
-	glGenTextures(1, &textureID);
-	glBindTexture(GL_TEXTURE_2D, textureID);
+	unsigned int floorTexture;
+	glGenTextures(1, &floorTexture);
+	glBindTexture(GL_TEXTURE_2D, floorTexture);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -90,7 +96,39 @@ unsigned int loadTexture(const std::string& path) {
 		std::cout << "failed to load texture: " << path << std::endl;
 	}
 	stbi_image_free(data);
-	return textureID;
+	return floorTexture;
+}
+
+unsigned int depthMapFBO;
+unsigned int depthMap;
+const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+void configureDepthMapFBO() {
+	glGenFramebuffers(1, &depthMapFBO);
+	glGenTextures(1, &depthMap);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_REPEAT);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+	glBindBuffer(GL_FRAMEBUFFER, 0);
+}
+
+void generateDepthMap(unsigned int texture) {
+	glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+		// glClear(GL_DEPTH_BUFFER_BIT);
+		// glActiveTexture(GL_TEXTURE0);
+		// glBindTexture(GL_TEXTURE_2D, texture);
+		// renderScene(simpleDepthBuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 int main()
@@ -158,10 +196,9 @@ int main()
 
 	lastFrameTime = static_cast<float>(glfwGetTime());	// avoid first huge deltaTime
 
-	unsigned int VAO, VBO, EBO;
-	loadFloor(&VAO, &VBO, &EBO);
-
-	unsigned int floorTexture = loadTexture("resources/textures/concrete/Concrete047A_1K-JPG_Color.jpg");
+	loadFloor();
+	unsigned int floorTexture = loadTexture("resources/textures/concrete/Concrete047A_1K-JPG_Color.jpg");	
+	configureDepthMapFBO();
 
 	// render loop
 	while (!glfwWindowShouldClose(window))
@@ -278,8 +315,11 @@ int main()
 
 		floorShader.setMat4("model", model);
 		
-		glBindVertexArray(VAO);
+		glBindVertexArray(floorVAO);
 		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+
+		// generateDepthMap(floorTexture);
 
 		// ui is drawn last so it sits on top of the scene
 		gui::endFrame();
