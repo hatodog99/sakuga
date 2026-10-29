@@ -599,12 +599,14 @@
     <None Include="includes\glm\gtx\vector_angle.inl" />
     <None Include="includes\glm\gtx\vector_query.inl" />
     <None Include="includes\glm\gtx\wrap.inl" />
-    <None Include="resources\shaders\depth_test.fs.glsl" />
+    <None Include="resources\shaders\debug_depth_quad.fs.glsl" />
+    <None Include="resources\shaders\debug_depth_quad.vs.glsl" />
+    <None Include="resources\shaders\depth.fs.glsl" />
+    <None Include="resources\shaders\depth.vs.glsl" />
     <None Include="resources\shaders\light.fs.glsl" />
     <None Include="resources\shaders\light.vs.glsl" />
     <None Include="resources\shaders\light_cube.fs.glsl" />
     <None Include="resources\shaders\light_cube.vs.glsl" />
-    <None Include="resources\shaders\linear_depth_test.fs.glsl" />
     <None Include="resources\shaders\no_light.fs.glsl" />
     <None Include="resources\shaders\outline.fs.glsl" />
     <None Include="resources\shaders\outline.vs.glsl" />

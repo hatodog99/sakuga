@@ -35,33 +35,66 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 	glViewport(0, 0, width, height);
 }
 
-unsigned int floorVAO = 0;
-unsigned int floorVBO;
-unsigned int floorEBO;
-void loadFloor() {
-	if (floorVAO == 0) {
+// renderQuad() renders a 1x1 XY quad in NDC
+// -----------------------------------------
+unsigned int quadVAO = 0;
+unsigned int quadVBO;
+void renderQuad()
+{
+	if (quadVAO == 0)
+	{
+		float quadVertices[] = {
+			// positions        // texture Coords
+			-1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
+			-1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+			 1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+			 1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+		};
+		// setup plane VAO
+		glGenVertexArrays(1, &quadVAO);
+		glGenBuffers(1, &quadVBO);
+		glBindVertexArray(quadVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+	}
+	glBindVertexArray(quadVAO);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	glBindVertexArray(0);
+}
+
+// render 1x1 plane in normalized device coords
+unsigned int planeVAO = 0;
+unsigned int planeVBO;
+unsigned int planeEBO;
+void renderPlane() {
+	// initalize if necessary
+	if (planeVAO == 0) {
 
 		float vertices[] = {
 			//  position           	normal					uv
-			0.5f,  0.5f, 0.0f,		0.0f, 0.0f, 1.0f,		3.0f, 3.0f,  // top right
-			0.5f, -0.5f, 0.0f,		0.0f, 0.0f, 1.0f,		3.0f, 0.0f,  // bottom right
-			-0.5f, -0.5f, 0.0f,		0.0f, 0.0f, 1.0f,		0.0f, 0.0f,  // bottom left
-			-0.5f,  0.5f, 0.0f,		0.0f, 0.0f, 1.0f,		0.0f, 3.0f   // top left
+			1.0f,  1.0f, 0.0f,		0.0f, 0.0f, 1.0f,		3.0f, 3.0f,  // top right
+			1.0f, -1.0f, 0.0f,		0.0f, 0.0f, 1.0f,		3.0f, 0.0f,  // bottom right
+			-1.0f, -1.0f, 0.0f,		0.0f, 0.0f, 1.0f,		0.0f, 0.0f,  // bottom left
+			-1.0f,  1.0f, 0.0f,		0.0f, 0.0f, 1.0f,		0.0f, 3.0f   // top left
 		};
 		unsigned int indices[] = {  // note that we start from 0!
 			0, 3, 1,   // first triangle
 			1, 3, 2    // second triangle
 		};  
-		glGenVertexArrays(1, &floorVAO);
-		glGenBuffers(1, &floorVBO);
-		glGenBuffers(1, &floorEBO);
+		glGenVertexArrays(1, &planeVAO);
+		glGenBuffers(1, &planeVBO);
+		glGenBuffers(1, &planeEBO);
 		
-		glBindVertexArray(floorVAO);
+		glBindVertexArray(planeVAO);
 	
-		glBindBuffer(GL_ARRAY_BUFFER, floorVBO);
+		glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 	
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, floorEBO);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, planeEBO);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 	
 		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
@@ -75,6 +108,39 @@ void loadFloor() {
 	
 		glBindVertexArray(0);
 	}
+
+	// render plane
+	glBindVertexArray(planeVAO);
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
+}
+
+void drawFloor(Shader& shader) {
+	glm::mat4 model = glm::mat4(1.0f);
+	model = glm::translate(model, glm::vec3(0.0f, -0.8f, 0.0f));
+	model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+	model = glm::scale(model, glm::vec3(5.0f, 5.0f, 1.0f));	// 5x5 floor
+	shader.setMat4("model", model);
+	renderPlane();
+}
+
+const float charModelScale = 1.0f;
+const float floorY = -0.8f;
+glm::mat4 getCharacterModelMatrix() {
+	glm::mat4 model = glm::mat4(1.0f);
+	model = glm::translate(model, glm::vec3(0.0f, floorY, 0.0f));
+	model = glm::scale(model, glm::vec3(charModelScale));
+	return model;
+}
+
+void drawCharacter(Shader& shader, Model& charModel, const glm::mat4& model) {
+	shader.setMat4("model", model);
+	charModel.Draw(shader);
+}
+
+void drawOutline(Shader& shader, Model& charModel, const glm::mat4& model) {
+	shader.setMat4("model", model);
+	charModel.Draw(shader);
 }
 
 unsigned int loadTexture(const std::string& path) {
@@ -121,13 +187,15 @@ void configureDepthMapFBO() {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void generateDepthMap(unsigned int texture) {
+void generateDepthMap(Shader& shader, unsigned int texture, Model& charModel) {
 	glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
 	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-		// glClear(GL_DEPTH_BUFFER_BIT);
-		// glActiveTexture(GL_TEXTURE0);
-		// glBindTexture(GL_TEXTURE_2D, texture);
-		// renderScene(simpleDepthBuffer);
+		 glClear(GL_DEPTH_BUFFER_BIT);
+		 glActiveTexture(GL_TEXTURE0);
+		 glBindTexture(GL_TEXTURE_2D, texture);
+		 drawFloor(shader);
+		 drawCharacter(shader, charModel, getCharacterModelMatrix());
+		 drawOutline(shader, charModel, getCharacterModelMatrix());
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -180,11 +248,14 @@ int main()
 	float displayedFPS = 0.0f;
 	float displayedMs = 0.0f;
 
-	Shader lightShader("resources/shaders/light.vs.glsl", "resources/shaders/light.fs.glsl");
+	Shader charShader("resources/shaders/light.vs.glsl", "resources/shaders/light.fs.glsl");
 	Shader outlineShader("resources/shaders/outline.vs.glsl", "resources/shaders/outline.fs.glsl");
 	Shader floorShader("resources/shaders/floor.vs.glsl", "resources/shaders/floor.fs.glsl");
 
-	Model object("resources/objects/2B/2B-no-skirt-1.glb");
+	Shader depthShader("resources/shaders/depth.vs.glsl", "resources/shaders/depth.fs.glsl");
+	Shader debugDepthQuadShader("resources/shaders/debug_depth_quad.vs.glsl", "resources/shaders/debug_depth_quad.fs.glsl");
+
+	Model charModel("resources/objects/2B/2B-no-skirt-1.glb");
 	//Model object("resources/objects/ijichi-nijika/1.fbx");
 
 	// shader unforms
@@ -192,11 +263,8 @@ int main()
 	Material material;
 	Outline outline;
 
-	const float modelScale = 1.0f;
-
 	lastFrameTime = static_cast<float>(glfwGetTime());	// avoid first huge deltaTime
 
-	loadFloor();
 	unsigned int floorTexture = loadTexture("resources/textures/concrete/Concrete047A_1K-JPG_Color.jpg");	
 	configureDepthMapFBO();
 
@@ -255,31 +323,58 @@ int main()
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
+		float nearPlane = 1.0f;
+		float farPlane = 7.5f;
+		glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, nearPlane, farPlane);
+		glm::mat4 lightView = glm::lookAt(dirLight.direction, glm::vec3(0.0f), glm::vec3(0.0, 1.0, 0.0));
+		glm::mat4 lightSpaceMatrix = lightProjection * lightView;
+
+		depthShader.use();
+		depthShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
+		generateDepthMap(depthShader, floorTexture, charModel);
+
+		// reset viewport
+		glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
 		// view/projection transformations
 		float aspect = (SCR_HEIGHT > 0) ? (float)SCR_WIDTH / (float)SCR_HEIGHT : 1.0f;
 		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), aspect, 0.1f, 100.0f);
 		glm::mat4 view = camera.GetViewMatrix();
 
 		// moving light
-		if (input.lightMovement)
-		{
-			float speed = 0.7f;
-			float amplitude = 0.8f;
-			dirLight.direction.x = std::sin(currentFrameTime * speed) * amplitude;
-		}
+		//if (input.lightMovement)
+		//{
+		//	float speed = 0.7f;
+		//	float amplitude = 0.8f;
+		//	dirLight.direction.x = std::sin(currentFrameTime * speed) * amplitude;
+		//}
 
-		glm::mat4 model = glm::mat4(1.0f);
-		model = glm::translate(model, glm::vec3(0.0f, -0.8f, 0.0f));
-		model = glm::scale(model, glm::vec3(modelScale));
+		charShader.use();
+		shader_config::applyCamera(charShader, projection, view, camera.Position);
+		shader_config::applyLightingToggles(charShader, input.lighting, input.cellShading, input.rimLighting);
+		shader_config::applyMaterial(charShader, material);
+		shader_config::applyDirLight(charShader, dirLight, colors::whiteLight);
+		
+		// rendering
+		// ====================================================================
+		// character
+		drawCharacter(charShader, charModel, getCharacterModelMatrix());
 
-		lightShader.use();
-		shader_config::applyCamera(lightShader, projection, view, camera.Position);
-		shader_config::applyLightingToggles(lightShader, input.lighting, input.cellShading, input.rimLighting);
-		shader_config::applyMaterial(lightShader, material);
-		shader_config::applyDirLight(lightShader, dirLight, colors::whiteLight);
-		lightShader.setMat4("model", model);
-		object.Draw(lightShader);
+		// floor
+		floorShader.use();
+		shader_config::applyCamera(floorShader, projection, view, camera.Position);
+		shader_config::applyLightingToggles(floorShader, input.lighting, input.cellShading, input.rimLighting);
+		shader_config::applyDirLight(floorShader, dirLight, colors::whiteLight);
+		shader_config::applyMaterial(floorShader, material);
+		floorShader.setInt("textureID", 0);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, floorTexture);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, depthMap);
+		drawFloor(floorShader);
 
+		// outline
 		if (input.outline)
 		{
 			glCullFace(GL_FRONT);
@@ -288,47 +383,34 @@ int main()
 
 			outlineShader.use();
 			shader_config::applyOutline(outlineShader, outline, outlineColor, projection, view);
-			outlineShader.setMat4("model", model);
-			outlineShader.setFloat("aspect", (float)SCR_WIDTH / (float)SCR_HEIGHT);
-			object.Draw(outlineShader);
+			outlineShader.setFloat("aspect", aspect);
+			drawOutline(outlineShader, charModel, getCharacterModelMatrix());
 
 			glCullFace(GL_BACK);
 		}
 
-		floorShader.use();
-		floorShader.setInt("textureID", 0);   // sampler reads texture unit 0
+		// render Depth map to quad for visual debugging
+		// ---------------------------------------------
+		debugDepthQuadShader.use();
+		debugDepthQuadShader.setFloat("near_plane", nearPlane);
+		debugDepthQuadShader.setFloat("far_plane", farPlane);
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, floorTexture);
-
-		floorShader.setMat4("projection", projection);
-		floorShader.setMat4("view", view);
-
-		model = glm::mat4(1.0f);
-		model = glm::translate(model, glm::vec3(0.0f, -0.8f, 0.0f));
-		model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-		model = glm::scale(model, glm::vec3(10.0f, 10.0f, 1.0f));	// 10x10 floor
-
-		shader_config::applyCamera(lightShader, projection, view, camera.Position);
-		shader_config::applyLightingToggles(lightShader, input.lighting, input.cellShading, input.rimLighting);
-		shader_config::applyMaterial(lightShader, material);
-		shader_config::applyDirLight(lightShader, dirLight, colors::whiteLight);
-
-		floorShader.setMat4("model", model);
-		
-		glBindVertexArray(floorVAO);
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-		glBindVertexArray(0);
-
-		// generateDepthMap(floorTexture);
+		glBindTexture(GL_TEXTURE_2D, depthMap);
+		//renderQuad();
 
 		// ui is drawn last so it sits on top of the scene
 		gui::endFrame();
+
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
 
 	gui::shutdown();	// before glfwTerminate
+
+	glDeleteVertexArrays(1, &planeVAO);
+	glDeleteBuffers(1, &planeVBO);
+	glDeleteBuffers(1, &planeEBO);
 
 	glfwTerminate();
 	return 0;

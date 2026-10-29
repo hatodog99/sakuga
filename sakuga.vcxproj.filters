@@ -1805,9 +1805,6 @@
     <None Include="includes\assimp\vector3.inl">
       <Filter>includes\assimp</Filter>
     </None>
-    <None Include="resources\shaders\depth_test.fs.glsl">
-      <Filter>resources\shaders</Filter>
-    </None>
     <None Include="resources\shaders\light.fs.glsl">
       <Filter>resources\shaders</Filter>
     </None>
@@ -1818,9 +1815,6 @@
       <Filter>resources\shaders</Filter>
     </None>
     <None Include="resources\shaders\light_cube.vs.glsl">
-      <Filter>resources\shaders</Filter>
-    </None>
-    <None Include="resources\shaders\linear_depth_test.fs.glsl">
       <Filter>resources\shaders</Filter>
     </None>
     <None Include="resources\shaders\no_light.fs.glsl">
@@ -1835,6 +1829,10 @@
     <None Include="includes\assimp\bin\assimp-vc145-mtd.dll">
       <Filter>includes\assimp\bin</Filter>
     </None>
+    <None Include="resources\shaders\depth.vs.glsl" />
+    <None Include="resources\shaders\depth.fs.glsl" />
+    <None Include="resources\shaders\debug_depth_quad.vs.glsl" />
+    <None Include="resources\shaders\debug_depth_quad.fs.glsl" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="includes\glm\CMakeLists.txt">
