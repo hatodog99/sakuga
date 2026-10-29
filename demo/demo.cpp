@@ -2,6 +2,7 @@
 #include <GLFW/glfw3.h>
 
 #include <imgui/imgui.h>
+#include <stb/stb_image.h>
 
 #include <sakuga/camera.h>
 #include <sakuga/gui.h>
@@ -12,8 +13,6 @@
 
 #include <cmath>
 #include <iostream>
-
-void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 
 // screen
 unsigned int SCR_WIDTH = 1024;
@@ -28,6 +27,71 @@ float deltaTime = 0.0f;
 float lastFrameTime = 0.0f;
 
 Input input(camera, deltaTime);
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+	SCR_WIDTH = width;
+	SCR_HEIGHT = height;
+	glViewport(0, 0, width, height);
+}
+
+void loadFloor(unsigned int* VAO, unsigned int* VBO, unsigned int* EBO) {
+	float vertices[] = {
+		//  position           	normal					uv
+		0.5f,  0.5f, 0.0f,		0.0f, 0.0f, 1.0f,		3.0f, 3.0f,  // top right
+		0.5f, -0.5f, 0.0f,		0.0f, 0.0f, 1.0f,		3.0f, 0.0f,  // bottom right
+		-0.5f, -0.5f, 0.0f,		0.0f, 0.0f, 1.0f,		0.0f, 0.0f,  // bottom left
+		-0.5f,  0.5f, 0.0f,		0.0f, 0.0f, 1.0f,		0.0f, 3.0f   // top left
+	};
+	unsigned int indices[] = {  // note that we start from 0!
+		0, 3, 1,   // first triangle
+		1, 3, 2    // second triangle
+	};  
+	glGenVertexArrays(1, VAO);
+	glGenBuffers(1, VBO);
+	glGenBuffers(1, EBO);
+	
+	glBindVertexArray(*VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, *VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, *EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+	glEnableVertexAttribArray(2);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0); 
+
+	glBindVertexArray(0);
+}
+
+unsigned int loadTexture(const std::string& path) {
+	unsigned int textureID;
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_2D, textureID);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	int width, height, nrComponents;
+	unsigned char* data = stbi_load(path.c_str(), &width, &height, &nrComponents, 4);
+	if (data) {
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		glGenerateMipmap(GL_TEXTURE_2D);
+	} else {
+		std::cout << "failed to load texture: " << path << std::endl;
+	}
+	stbi_image_free(data);
+	return textureID;
+}
 
 int main()
 {
@@ -80,6 +144,7 @@ int main()
 
 	Shader lightShader("resources/shaders/light.vs.glsl", "resources/shaders/light.fs.glsl");
 	Shader outlineShader("resources/shaders/outline.vs.glsl", "resources/shaders/outline.fs.glsl");
+	Shader floorShader("resources/shaders/floor.vs.glsl", "resources/shaders/floor.fs.glsl");
 
 	Model object("resources/objects/2B/2B-no-skirt-1.glb");
 	//Model object("resources/objects/ijichi-nijika/1.fbx");
@@ -92,6 +157,11 @@ int main()
 	const float modelScale = 1.0f;
 
 	lastFrameTime = static_cast<float>(glfwGetTime());	// avoid first huge deltaTime
+
+	unsigned int VAO, VBO, EBO;
+	loadFloor(&VAO, &VBO, &EBO);
+
+	unsigned int floorTexture = loadTexture("resources/textures/concrete/Concrete047A_1K-JPG_Color.jpg");
 
 	// render loop
 	while (!glfwWindowShouldClose(window))
@@ -113,7 +183,7 @@ int main()
 			displayedMs = (fpsTimer / fpsFrames) * 1000.0f;
 			displayedFPS = fpsFrames / fpsTimer;
 			fpsTimer = 0.0f;
-			fpsFrames = 0.0f;
+			fpsFrames = 0;
 		}
 
 		ImGui::SetNextWindowBgAlpha(0.6f);
@@ -188,6 +258,29 @@ int main()
 			glCullFace(GL_BACK);
 		}
 
+		floorShader.use();
+		floorShader.setInt("textureID", 0);   // sampler reads texture unit 0
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, floorTexture);
+
+		floorShader.setMat4("projection", projection);
+		floorShader.setMat4("view", view);
+
+		model = glm::mat4(1.0f);
+		model = glm::translate(model, glm::vec3(0.0f, -0.8f, 0.0f));
+		model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+		model = glm::scale(model, glm::vec3(10.0f, 10.0f, 1.0f));	// 10x10 floor
+
+		shader_config::applyCamera(lightShader, projection, view, camera.Position);
+		shader_config::applyLightingToggles(lightShader, input.lighting, input.cellShading, input.rimLighting);
+		shader_config::applyMaterial(lightShader, material);
+		shader_config::applyDirLight(lightShader, dirLight, colors::whiteLight);
+
+		floorShader.setMat4("model", model);
+		
+		glBindVertexArray(VAO);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
 		// ui is drawn last so it sits on top of the scene
 		gui::endFrame();
 
@@ -199,11 +292,4 @@ int main()
 
 	glfwTerminate();
 	return 0;
-}
-
-void framebuffer_size_callback(GLFWwindow* window, int width, int height)
-{
-	SCR_WIDTH = width;
-	SCR_HEIGHT = height;
-	glViewport(0, 0, width, height);
 }
