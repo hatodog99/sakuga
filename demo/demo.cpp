@@ -25,6 +25,7 @@ Camera camera(cameraPos);
 // frame times
 float deltaTime = 0.0f;
 float lastFrameTime = 0.0f;
+float currentFrameTime = 0.0f;
 
 Input input(camera, deltaTime);
 
@@ -41,14 +42,14 @@ unsigned int quadVAO = 0;
 unsigned int quadVBO;
 void renderQuad()
 {
-	if (quadVAO == 0)
+	if (quadVAO == 0)	// initalize if necessary
 	{
 		float quadVertices[] = {
-			// positions        // texture Coords
-			-1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
-			-1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
-			 1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
-			 1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+			// positions			// uv
+			-1.0f,  1.0f, 0.0f,		0.0f, 1.0f,		// top left
+			-1.0f, -1.0f, 0.0f,		0.0f, 0.0f,		// bottom left
+			 1.0f,  1.0f, 0.0f,		1.0f, 1.0f,		// top right
+			 1.0f, -1.0f, 0.0f,		1.0f, 0.0f,		// bottom right
 		};
 		// setup plane VAO
 		glGenVertexArrays(1, &quadVAO);
@@ -61,6 +62,8 @@ void renderQuad()
 		glEnableVertexAttribArray(1);
 		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 	}
+
+	// render quad
 	glBindVertexArray(quadVAO);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	glBindVertexArray(0);
@@ -71,8 +74,7 @@ unsigned int planeVAO = 0;
 unsigned int planeVBO;
 unsigned int planeEBO;
 void renderPlane() {
-	// initalize if necessary
-	if (planeVAO == 0) {
+	if (planeVAO == 0) {	// initalize if necessary
 
 		float vertices[] = {
 			//  position           	normal					uv
@@ -124,6 +126,16 @@ void drawFloor(Shader& shader) {
 	renderPlane();
 }
 
+void drawCharacter(Shader& shader, Model& charModel, const glm::mat4& model) {
+	shader.setMat4("model", model);
+	charModel.Draw(shader);
+}
+
+void drawOutline(Shader& shader, Model& charModel, const glm::mat4& model) {
+	shader.setMat4("model", model);
+	charModel.Draw(shader);
+}
+
 const float charModelScale = 1.0f;
 const float floorY = -0.8f;
 glm::mat4 getCharacterModelMatrix() {
@@ -133,14 +145,39 @@ glm::mat4 getCharacterModelMatrix() {
 	return model;
 }
 
-void drawCharacter(Shader& shader, Model& charModel, const glm::mat4& model) {
-	shader.setMat4("model", model);
-	charModel.Draw(shader);
+unsigned int depthMapFBO;
+unsigned int depthMap;
+const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+void configureDepthMapFBO() {
+	glGenFramebuffers(1, &depthMapFBO);
+
+	// create depth texture
+	glGenTextures(1, &depthMap);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	// attach depth texture to FBO's depth buffer
+	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void drawOutline(Shader& shader, Model& charModel, const glm::mat4& model) {
-	shader.setMat4("model", model);
-	charModel.Draw(shader);
+void renderDepthMap(Shader& shader, unsigned int texture, Model& charModel) {
+	glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+	glClear(GL_DEPTH_BUFFER_BIT);
+	glActiveTexture(GL_TEXTURE0);
+	drawFloor(shader);
+	drawCharacter(shader, charModel, getCharacterModelMatrix());
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 unsigned int loadTexture(const std::string& path) {
@@ -165,42 +202,11 @@ unsigned int loadTexture(const std::string& path) {
 	return floorTexture;
 }
 
-unsigned int depthMapFBO;
-unsigned int depthMap;
-const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
-void configureDepthMapFBO() {
-	glGenFramebuffers(1, &depthMapFBO);
-	glGenTextures(1, &depthMap);
-	glBindTexture(GL_TEXTURE_2D, depthMap);
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_REPEAT);
-
-	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
-	glDrawBuffer(GL_NONE);
-	glReadBuffer(GL_NONE);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
-void generateDepthMap(Shader& shader, unsigned int texture, Model& charModel) {
-	glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
-	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-		 glClear(GL_DEPTH_BUFFER_BIT);
-		 glActiveTexture(GL_TEXTURE0);
-		 glBindTexture(GL_TEXTURE_2D, texture);
-		 drawFloor(shader);
-		 drawCharacter(shader, charModel, getCharacterModelMatrix());
-		 drawOutline(shader, charModel, getCharacterModelMatrix());
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
 int main()
 {
+	// initialize stuff
+	// ------------------------------------------------------------------------
+	// GLFW
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -210,6 +216,7 @@ int main()
 #endif
 	glfwWindowHint(GLFW_SAMPLES, 4);
 
+	// make & setup window
 	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "demo", NULL, NULL);
 	if (window == NULL)
 	{
@@ -225,6 +232,7 @@ int main()
 
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
+	// GLAD
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
 	{
 		std::cout << "failed to initialize glad" << std::endl;
@@ -232,14 +240,13 @@ int main()
 	}
 
 	glEnable(GL_DEPTH_TEST);
-	glEnable(GL_STENCIL_TEST);
-	glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);	// write the reference value when stencil and depth pass
 
 	glEnable(GL_CULL_FACE);
 	glFrontFace(GL_CCW);
 
 	glEnable(GL_MULTISAMPLE);
 
+	// ImGui
 	gui::init(window);
 	 
 	// fps display
@@ -248,6 +255,7 @@ int main()
 	float displayedFPS = 0.0f;
 	float displayedMs = 0.0f;
 
+	// shaders
 	Shader charShader("resources/shaders/light.vs.glsl", "resources/shaders/light.fs.glsl");
 	Shader outlineShader("resources/shaders/outline.vs.glsl", "resources/shaders/outline.fs.glsl");
 	Shader floorShader("resources/shaders/floor.vs.glsl", "resources/shaders/floor.fs.glsl");
@@ -256,9 +264,9 @@ int main()
 	Shader debugDepthQuadShader("resources/shaders/debug_depth_quad.vs.glsl", "resources/shaders/debug_depth_quad.fs.glsl");
 
 	Model charModel("resources/objects/2B/2B-no-skirt-1.glb");
-	//Model object("resources/objects/ijichi-nijika/1.fbx");
+	//Model charModel("resources/objects/ijichi-nijika/1.fbx");
 
-	// shader unforms
+	// shader uniforms
 	DirLight dirLight;
 	Material material;
 	Outline outline;
@@ -268,18 +276,17 @@ int main()
 	unsigned int floorTexture = loadTexture("resources/textures/concrete/Concrete047A_1K-JPG_Color.jpg");	
 	configureDepthMapFBO();
 
-	// render loop
+	// for depth (shadow) map debugging
+	debugDepthQuadShader.use();
+	debugDepthQuadShader.setInt("depthMap", 0);
+
+	// render stuff
+	// ------------------------------------------------------------------------
 	while (!glfwWindowShouldClose(window))
 	{
 		float currentFrameTime = static_cast<float>(glfwGetTime());
 		deltaTime = currentFrameTime - lastFrameTime;
 		lastFrameTime = currentFrameTime;
-
-		input.processInput(window);
-
-		// ui (built first, so edits apply to this frame)
-		gui::setMouseEnabled(!input.mouseLook);
-		gui::beginFrame();
 
 		fpsTimer += deltaTime;
 		++fpsFrames;
@@ -290,6 +297,12 @@ int main()
 			fpsTimer = 0.0f;
 			fpsFrames = 0;
 		}
+
+		input.processInput(window);
+
+		// ui (built first, so edits apply to this frame)
+		gui::setMouseEnabled(!input.mouseLook);
+		gui::beginFrame();
 
 		ImGui::SetNextWindowBgAlpha(0.6f);
 		ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoNav);	// so hitting TAB doesn't affect the gui
@@ -321,58 +334,38 @@ int main()
 		else
 			glClearColor(0.90f, 0.90f, 0.90f, 1.0f);	// light
 
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		float nearPlane = 1.0f;
-		float farPlane = 7.5f;
-		glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, nearPlane, farPlane);
-		glm::mat4 lightView = glm::lookAt(dirLight.direction, glm::vec3(0.0f), glm::vec3(0.0, 1.0, 0.0));
+		// render depth of scene to texture (from light's POV)
+		float lightNearPlane = 1.0f, lightFarPlane = 20.0f;
+		glm::vec3 lightPos = -glm::normalize(dirLight.direction) * 5.0f;
+		glm::mat4 lightProjection = glm::ortho(-7.0f, 7.0f, -7.0f, 7.0f, lightNearPlane, lightFarPlane);
+		glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 		glm::mat4 lightSpaceMatrix = lightProjection * lightView;
 
+		// depth map (used for rendering shadows)
 		depthShader.use();
 		depthShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
-		generateDepthMap(depthShader, floorTexture, charModel);
+		renderDepthMap(depthShader, floorTexture, charModel);
 
 		// reset viewport
 		glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// view/projection transformations
 		float aspect = (SCR_HEIGHT > 0) ? (float)SCR_WIDTH / (float)SCR_HEIGHT : 1.0f;
 		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), aspect, 0.1f, 100.0f);
 		glm::mat4 view = camera.GetViewMatrix();
-
-		// moving light
-		//if (input.lightMovement)
-		//{
-		//	float speed = 0.7f;
-		//	float amplitude = 0.8f;
-		//	dirLight.direction.x = std::sin(currentFrameTime * speed) * amplitude;
-		//}
-
-		charShader.use();
+		
+		// rendering
+		// --------------------------------------------------------------------
+		// character
+		charShader.use();	
 		shader_config::applyCamera(charShader, projection, view, camera.Position);
 		shader_config::applyLightingToggles(charShader, input.lighting, input.cellShading, input.rimLighting);
 		shader_config::applyMaterial(charShader, material);
 		shader_config::applyDirLight(charShader, dirLight, colors::whiteLight);
-		
-		// rendering
-		// ====================================================================
-		// character
 		drawCharacter(charShader, charModel, getCharacterModelMatrix());
-
-		// floor
-		floorShader.use();
-		shader_config::applyCamera(floorShader, projection, view, camera.Position);
-		shader_config::applyLightingToggles(floorShader, input.lighting, input.cellShading, input.rimLighting);
-		shader_config::applyDirLight(floorShader, dirLight, colors::whiteLight);
-		shader_config::applyMaterial(floorShader, material);
-		floorShader.setInt("textureID", 0);
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, floorTexture);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, depthMap);
-		drawFloor(floorShader);
 
 		// outline
 		if (input.outline)
@@ -389,24 +382,41 @@ int main()
 			glCullFace(GL_BACK);
 		}
 
-		// render Depth map to quad for visual debugging
-		// ---------------------------------------------
-		debugDepthQuadShader.use();
-		debugDepthQuadShader.setFloat("near_plane", nearPlane);
-		debugDepthQuadShader.setFloat("far_plane", farPlane);
+		// floor
+		floorShader.use();
+		shader_config::applyCamera(floorShader, projection, view, camera.Position);
+		shader_config::applyLightingToggles(floorShader, input.lighting, input.cellShading, input.rimLighting);
+		shader_config::applyDirLight(floorShader, dirLight, colors::whiteLight);
+		shader_config::applyMaterial(floorShader, material);
+		floorShader.setInt("textureID", 0);
 		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, depthMap);
+		glBindTexture(GL_TEXTURE_2D, floorTexture);
+		drawFloor(floorShader);
+
+		// render depth map to quad for visual debugging
+		//debugDepthQuadShader.use();
+		//debugDepthQuadShader.setFloat("near_plane", lightNearPlane);
+		//debugDepthQuadShader.setFloat("far_plane", lightFarPlane);
+		//glActiveTexture(GL_TEXTURE0);
+		//glBindTexture(GL_TEXTURE_2D, depthMap);
 		//renderQuad();
+
+		// light movement
+		if (input.lightMovement)
+		{
+			float speed = 0.7f;
+			float amplitude = 0.8f;
+			dirLight.direction.x = std::sin(currentFrameTime * speed) * amplitude;
+		}
 
 		// ui is drawn last so it sits on top of the scene
 		gui::endFrame();
-
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
 
-	gui::shutdown();	// before glfwTerminate
+	gui::shutdown();
 
 	glDeleteVertexArrays(1, &planeVAO);
 	glDeleteBuffers(1, &planeVBO);
