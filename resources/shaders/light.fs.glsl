@@ -52,13 +52,22 @@ struct SpotLight {
 in vec3 FragPos;
 in vec3 Normal;
 in vec2 TexCoords;
+in vec4 FragPosLightSpace;
 
+// shadow stuff
+uniform sampler2D diffuseTexture;
+uniform sampler2D shadowMap;
+
+uniform vec3 lightPos;
 uniform vec3 viewPos;
+
 uniform DirLight dirLight;
 uniform PointLight pointLights[NR_POINT_LIGHTS];
 uniform SpotLight spotLight;
 uniform Material material;
 uniform sampler2D texture_diffuse1;
+
+uniform bool gReceiveShadows;
 
 // lighting
 uniform bool gLightingEnabled;
@@ -80,12 +89,96 @@ const float ALPHA_CUTOFF = 0.5;
 
 float gamma = 2.2f;
 
-float computeToonIntensity(float dotProduct);
 void CalcDirLight(DirLight light, vec3 normal, vec3 viewDir,
-                   out vec3 ambient, out vec3 diffuse, out vec3 specular);
+                   out vec3 ambient, out vec3 diffuse, out vec3 specular)
+{
+    vec3 lightDir = normalize(-light.direction);
+    float diff = max(dot(normal, lightDir), 0.0);
+
+    vec3 halfwayDir = normalize(lightDir + viewDir);
+    float spec = pow(max(dot(normal, halfwayDir), 0.0), material.shininess);
+    spec *= step(0.0, diff);   // no highlight on surfaces facing away from the light
+
+    ambient = light.ambient * light.color;
+    diffuse = light.diffuse * diff * light.color;
+    specular = light.specular * spec * material.specular * light.color;
+}
+
+
 void CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec3 texColor,
-                   out vec3 ambient, out vec3 diffuse, out vec3 specular);
-vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec3 texColor);
+                     out vec3 ambient, out vec3 diffuse, out vec3 specular)
+{
+    vec3 lightDir = normalize(light.position - fragPos);
+    float diff = max(dot(normal, lightDir), 0.0);
+
+    vec3 halfwayDir = normalize(lightDir + viewDir);
+    float spec = pow(max(dot(normal, halfwayDir), 0.0), material.shininess);
+    spec *= step(0.0, diff);   // no highlight on surfaces facing away from the light
+
+    float distance = length(light.position - fragPos);
+    float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));    
+
+    ambient = light.ambient * attenuation * light.color;
+    diffuse = light.diffuse * diff * attenuation * light.color;
+    specular = light.specular * spec * material.specular * attenuation * light.color;
+}
+
+vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec3 texColor)
+{
+    vec3 lightDir = normalize(light.position - fragPos);
+    float diff = max(dot(normal, lightDir), 0.0);
+
+    vec3 halfwayDir = normalize(lightDir + viewDir);
+    float spec = pow(max(dot(normal, halfwayDir), 0.0), material.shininess);
+    spec *= step(0.0, diff);   // no highlight on surfaces facing away from the light
+
+    float distance = length(light.position - fragPos);
+    float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));    
+
+    float theta = dot(lightDir, normalize(-light.direction)); 
+    float epsilon = light.cutOff - light.outerCutOff;
+    float intensity = clamp((theta - light.outerCutOff) / epsilon, 0.0, 1.0);
+
+    vec3 ambient = light.ambient * texColor;
+    vec3 diffuse = light.color * light.diffuse * diff * texColor;
+    vec3 specular = light.specular * spec * material.specular;
+    ambient *= attenuation * intensity;
+    diffuse *= attenuation * intensity;
+    specular *= attenuation * intensity;
+
+    return (ambient + diffuse + specular);
+}
+
+float ShadowCalc(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
+{
+    // calculate perspective divide
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w; 
+    projCoords = projCoords * 0.5 + 0.5;    // transform to [0,1] range for texture coords & depth values
+    if(projCoords.z > 1.0)
+        return 0.0;
+
+    float closestDepth = texture(shadowMap, projCoords.xy).r;   // get closest depth value from light's POV
+    float currentDepth = projCoords.z;
+
+    // check whether current frag pos is in shadow
+    float bias = max(0.002 * (1.0 - dot(normal, lightDir)), 0.0003);
+
+    // check whether current frag pos is in shadow
+    // float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
+    // PCF
+    float shadow = 0.0;
+    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+    for (int x = -1; x <= 1; ++x)
+    {
+        for (int y = -1; y <= 1; ++y)
+        {
+            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
+            shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
+        }
+    }
+    shadow /= 9.0;
+    return smoothstep(0.3, 0.7, shadow);
+}
 
 void main()
 {
@@ -147,8 +240,12 @@ void main()
             // rimFactor = smoothstep(0.5, 0.55, rimFactor);   // hard toon edge; remove for a soft glow
             rim = rimColor * rimFactor * rimIntensity;
         }
+        
+        // result = (totalAmbient + totalDiffuse + totalSpecular + rim) * texColor;
 
-        result = (totalAmbient + totalDiffuse + totalSpecular + rim) * texColor;
+        vec3 lightDir = normalize(-dirLight.direction);
+        float shadow = gReceiveShadows ? ShadowCalc(FragPosLightSpace, norm, lightDir) : 0.0;
+        result = (totalAmbient + (1.0 - shadow) * (totalDiffuse + totalSpecular) + rim) * texColor;
     }
     else
     {
@@ -157,64 +254,4 @@ void main()
 
     result = clamp(result, 0.0, 1.0);
     FragColor = vec4(pow(result, vec3(1.0/gamma)), 1.0); // linear -> sRGB
-}
-
-void CalcDirLight(DirLight light, vec3 normal, vec3 viewDir,
-                   out vec3 ambient, out vec3 diffuse, out vec3 specular)
-{
-    vec3 lightDir = normalize(-light.direction);
-    float diff = max(dot(normal, lightDir), 0.0);
-
-    vec3 halfwayDir = normalize(lightDir + viewDir);
-    float spec = pow(max(dot(normal, halfwayDir), 0.0), material.shininess);
-    spec *= step(0.0, diff);   // no highlight on surfaces facing away from the light
-
-    ambient = light.ambient * light.color;
-    diffuse = light.diffuse * diff * light.color;
-    specular = light.specular * spec * material.specular * light.color;
-}
-
-
-void CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec3 texColor,
-                     out vec3 ambient, out vec3 diffuse, out vec3 specular)
-{
-    vec3 lightDir = normalize(light.position - fragPos);
-    float diff = max(dot(normal, lightDir), 0.0);
-
-    vec3 halfwayDir = normalize(lightDir + viewDir);
-    float spec = pow(max(dot(normal, halfwayDir), 0.0), material.shininess);
-    spec *= step(0.0, diff);   // no highlight on surfaces facing away from the light
-
-    float distance = length(light.position - fragPos);
-    float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));    
-
-    ambient = light.ambient * attenuation * light.color;
-    diffuse = light.diffuse * diff * attenuation * light.color;
-    specular = light.specular * spec * material.specular * attenuation * light.color;
-}
-
-vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec3 texColor)
-{
-    vec3 lightDir = normalize(light.position - fragPos);
-    float diff = max(dot(normal, lightDir), 0.0);
-
-    vec3 halfwayDir = normalize(lightDir + viewDir);
-    float spec = pow(max(dot(normal, halfwayDir), 0.0), material.shininess);
-    spec *= step(0.0, diff);   // no highlight on surfaces facing away from the light
-
-    float distance = length(light.position - fragPos);
-    float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));    
-
-    float theta = dot(lightDir, normalize(-light.direction)); 
-    float epsilon = light.cutOff - light.outerCutOff;
-    float intensity = clamp((theta - light.outerCutOff) / epsilon, 0.0, 1.0);
-
-    vec3 ambient = light.ambient * texColor;
-    vec3 diffuse = light.color * light.diffuse * diff * texColor;
-    vec3 specular = light.specular * spec * material.specular;
-    ambient *= attenuation * intensity;
-    diffuse *= attenuation * intensity;
-    specular *= attenuation * intensity;
-
-    return (ambient + diffuse + specular);
 }

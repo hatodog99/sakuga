@@ -1,3 +1,9 @@
+// TODO: 
+// fix shadows crawling and too pixelated on character model's face 
+// (maybe jsut project on floor not char model??)
+// 
+// add perspective shadows
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
@@ -147,7 +153,7 @@ glm::mat4 getCharacterModelMatrix() {
 
 unsigned int depthMapFBO;
 unsigned int depthMap;
-const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+const unsigned int SHADOW_WIDTH = 1096, SHADOW_HEIGHT = 1096;
 void configureDepthMapFBO() {
 	glGenFramebuffers(1, &depthMapFBO);
 
@@ -159,8 +165,10 @@ void configureDepthMapFBO() {
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
 
 	// attach depth texture to FBO's depth buffer
 	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
@@ -170,14 +178,14 @@ void configureDepthMapFBO() {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void renderDepthMap(Shader& shader, unsigned int texture, Model& charModel) {
+void renderDepthMap(Shader& shader, Model& charModel) {
+	glCullFace(GL_FRONT);
 	glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
 	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 	glClear(GL_DEPTH_BUFFER_BIT);
-	glActiveTexture(GL_TEXTURE0);
-	drawFloor(shader);
 	drawCharacter(shader, charModel, getCharacterModelMatrix());
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glCullFace(GL_BACK);
 }
 
 unsigned int loadTexture(const std::string& path) {
@@ -185,10 +193,10 @@ unsigned int loadTexture(const std::string& path) {
 	glGenTextures(1, &floorTexture);
 	glBindTexture(GL_TEXTURE_2D, floorTexture);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
 	int width, height, nrComponents;
 	unsigned char* data = stbi_load(path.c_str(), &width, &height, &nrComponents, 4);
@@ -256,9 +264,8 @@ int main()
 	float displayedMs = 0.0f;
 
 	// shaders
-	Shader charShader("resources/shaders/light.vs.glsl", "resources/shaders/light.fs.glsl");
+	Shader shader("resources/shaders/light.vs.glsl", "resources/shaders/light.fs.glsl");
 	Shader outlineShader("resources/shaders/outline.vs.glsl", "resources/shaders/outline.fs.glsl");
-	Shader floorShader("resources/shaders/floor.vs.glsl", "resources/shaders/floor.fs.glsl");
 
 	Shader depthShader("resources/shaders/depth.vs.glsl", "resources/shaders/depth.fs.glsl");
 	Shader debugDepthQuadShader("resources/shaders/debug_depth_quad.vs.glsl", "resources/shaders/debug_depth_quad.fs.glsl");
@@ -275,6 +282,10 @@ int main()
 
 	unsigned int floorTexture = loadTexture("resources/textures/concrete/Concrete047A_1K-JPG_Color.jpg");	
 	configureDepthMapFBO();
+
+	shader.use();
+	shader.setInt("diffuseTexture", 0);
+	shader.setInt("shadowMap", 1);
 
 	// for depth (shadow) map debugging
 	debugDepthQuadShader.use();
@@ -336,17 +347,17 @@ int main()
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		// render depth of scene to texture (from light's POV)
+		// render depth of scene to texture (from light's POV) in orthographic view
 		float lightNearPlane = 1.0f, lightFarPlane = 20.0f;
-		glm::vec3 lightPos = -glm::normalize(dirLight.direction) * 5.0f;
-		glm::mat4 lightProjection = glm::ortho(-7.0f, 7.0f, -7.0f, 7.0f, lightNearPlane, lightFarPlane);
+		glm::vec3 lightPos = -glm::normalize(dirLight.direction) * 7.0f;
+		glm::mat4 lightProjection = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, lightNearPlane, lightFarPlane);
 		glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 		glm::mat4 lightSpaceMatrix = lightProjection * lightView;
 
 		// depth map (used for rendering shadows)
 		depthShader.use();
 		depthShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
-		renderDepthMap(depthShader, floorTexture, charModel);
+		renderDepthMap(depthShader, charModel);
 
 		// reset viewport
 		glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
@@ -360,12 +371,23 @@ int main()
 		// rendering
 		// --------------------------------------------------------------------
 		// character
-		charShader.use();	
-		shader_config::applyCamera(charShader, projection, view, camera.Position);
-		shader_config::applyLightingToggles(charShader, input.lighting, input.cellShading, input.rimLighting);
-		shader_config::applyMaterial(charShader, material);
-		shader_config::applyDirLight(charShader, dirLight, colors::whiteLight);
-		drawCharacter(charShader, charModel, getCharacterModelMatrix());
+		shader.use();	
+		shader_config::applyCamera(shader, projection, view, camera.Position);
+		shader_config::applyLightingToggles(shader, input.lighting, input.cellShading, input.rimLighting);
+		shader_config::applyMaterial(shader, material);
+		shader_config::applyDirLight(shader, dirLight, colors::whiteLight);
+		shader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
+		shader.setBool("gReceiveShadows", false);
+		drawCharacter(shader, charModel, getCharacterModelMatrix());
+
+		// floor
+		shader.setBool("gReceiveShadows", true);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, floorTexture);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, depthMap);
+		glActiveTexture(GL_TEXTURE0);
+		drawFloor(shader);
 
 		// outline
 		if (input.outline)
@@ -381,17 +403,6 @@ int main()
 
 			glCullFace(GL_BACK);
 		}
-
-		// floor
-		floorShader.use();
-		shader_config::applyCamera(floorShader, projection, view, camera.Position);
-		shader_config::applyLightingToggles(floorShader, input.lighting, input.cellShading, input.rimLighting);
-		shader_config::applyDirLight(floorShader, dirLight, colors::whiteLight);
-		shader_config::applyMaterial(floorShader, material);
-		floorShader.setInt("textureID", 0);
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, floorTexture);
-		drawFloor(floorShader);
 
 		// render depth map to quad for visual debugging
 		//debugDepthQuadShader.use();
