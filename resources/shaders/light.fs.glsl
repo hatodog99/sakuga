@@ -80,6 +80,7 @@ uniform float toon_bias = 0.26;
 
 // rim lighting attributes
 uniform bool gRimLightingEnabled;
+uniform bool gReceiveRimLighting;
 uniform vec3 rimColor = vec3(1.0);
 uniform float rimPower = 3.0;
 uniform float rimIntensity = 0.5;
@@ -154,20 +155,21 @@ float ShadowCalc(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
     // calculate perspective divide
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w; 
     projCoords = projCoords * 0.5 + 0.5;    // transform to [0,1] range for texture coords & depth values
-    if(projCoords.z > 1.0)
+    if (projCoords.z > 1.0)
         return 0.0;
 
     float closestDepth = texture(shadowMap, projCoords.xy).r;   // get closest depth value from light's POV
     float currentDepth = projCoords.z;
 
     // check whether current frag pos is in shadow
-    float bias = max(0.002 * (1.0 - dot(normal, lightDir)), 0.0003);
+    // float bias = max(0.002 * (1.0 - dot(normal, lightDir)), 0.005);
+    float bias = 0.0;
 
     // check whether current frag pos is in shadow
     // float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
     // PCF
     float shadow = 0.0;
-    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+    vec2 texelSize = 3.0 / textureSize(shadowMap, 0);
     for (int x = -1; x <= 1; ++x)
     {
         for (int y = -1; y <= 1; ++y)
@@ -177,7 +179,8 @@ float ShadowCalc(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
         }
     }
     shadow /= 9.0;
-    return smoothstep(0.3, 0.7, shadow);
+    return shadow;
+    // return smoothstep(0.3, 0.7, shadow);
 }
 
 void main()
@@ -238,11 +241,9 @@ void main()
             float rimFactor = 1.0 - max(dot(norm, viewDir), 0.0);
             rimFactor = pow(rimFactor, max(rimPower, 0.001));
             // rimFactor = smoothstep(0.5, 0.55, rimFactor);   // hard toon edge; remove for a soft glow
-            rim = rimColor * rimFactor * rimIntensity;
-        }
+            rim = gReceiveRimLighting ? rimColor * rimFactor * rimIntensity : vec3(0.0);
+        } 
         
-        // result = (totalAmbient + totalDiffuse + totalSpecular + rim) * texColor;
-
         vec3 lightDir = normalize(-dirLight.direction);
         float shadow = gReceiveShadows ? ShadowCalc(FragPosLightSpace, norm, lightDir) : 0.0;
         result = (totalAmbient + (1.0 - shadow) * (totalDiffuse + totalSpecular) + rim) * texColor;

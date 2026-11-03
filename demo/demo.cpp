@@ -153,7 +153,7 @@ glm::mat4 getCharacterModelMatrix() {
 
 unsigned int depthMapFBO;
 unsigned int depthMap;
-const unsigned int SHADOW_WIDTH = 1096, SHADOW_HEIGHT = 1096;
+const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
 void configureDepthMapFBO() {
 	glGenFramebuffers(1, &depthMapFBO);
 
@@ -378,10 +378,12 @@ int main()
 		shader_config::applyDirLight(shader, dirLight, colors::whiteLight);
 		shader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
 		shader.setBool("gReceiveShadows", false);
+		shader.setBool("gReceiveRimLighting", true);
 		drawCharacter(shader, charModel, getCharacterModelMatrix());
 
 		// floor
 		shader.setBool("gReceiveShadows", true);
+		shader.setBool("gReceiveRimLighting", false);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, floorTexture);
 		glActiveTexture(GL_TEXTURE1);
