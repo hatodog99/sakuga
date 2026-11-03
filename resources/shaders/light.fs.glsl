@@ -67,23 +67,27 @@ uniform SpotLight spotLight;
 uniform Material material;
 uniform sampler2D texture_diffuse1;
 
-uniform bool gReceiveShadows;
-
+// attributes
+// ----------------------------------------------------------------------------
 // lighting
 uniform bool gLightingEnabled;
 
-// toon shading attributes
+// toon shading
 uniform bool gCellShadingEnabled;
 const float toon_color_levels = 3.0;
 const float toon_scale_factor = 1.0 / toon_color_levels;
 uniform float toon_bias = 0.26;
 
-// rim lighting attributes
+// rim lighting
 uniform bool gRimLightingEnabled;
 uniform bool gReceiveRimLighting;
 uniform vec3 rimColor = vec3(1.0);
 uniform float rimPower = 3.0;
 uniform float rimIntensity = 0.5;
+
+// shadows
+uniform bool gShadowMappingEnabled;
+uniform bool gReceiveShadowMapping;
 
 // pixels with alpha below this are discarded (fixes black borders on hair/feathers)
 const float ALPHA_CUTOFF = 0.5;
@@ -152,6 +156,8 @@ vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec
 
 float ShadowCalc(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
 {
+    if (!gReceiveShadowMapping) return 0.0;
+
     // calculate perspective divide
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w; 
     projCoords = projCoords * 0.5 + 0.5;    // transform to [0,1] range for texture coords & depth values
@@ -245,7 +251,7 @@ void main()
         } 
         
         vec3 lightDir = normalize(-dirLight.direction);
-        float shadow = gReceiveShadows ? ShadowCalc(FragPosLightSpace, norm, lightDir) : 0.0;
+        float shadow = gShadowMappingEnabled ? ShadowCalc(FragPosLightSpace, norm, lightDir) : 0.0;
         result = (totalAmbient + (1.0 - shadow) * (totalDiffuse + totalSpecular) + rim) * texColor;
     }
     else

@@ -9,11 +9,12 @@ namespace shader_config
         shader.setVec3("viewPos", viewPos);
     }
 
-    void applyLightingToggles(Shader& shader, bool lighting, bool cellShading, bool rimLighting)
+    void applyLightingToggles(Shader& shader, bool lighting, bool cellShading, bool rimLighting, bool shadowMapping)
     {
         shader.setBool("gLightingEnabled", lighting);
         shader.setBool("gCellShadingEnabled", cellShading);
         shader.setBool("gRimLightingEnabled", rimLighting);
+        shader.setBool("gShadowMappingEnabled", shadowMapping);
     }
 
     void applyMaterial(Shader& shader, const Material& material)

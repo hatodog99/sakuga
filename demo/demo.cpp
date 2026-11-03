@@ -330,6 +330,8 @@ int main()
 		ImGui::SetNextItemWidth(-1.0f);
 		ImGui::SliderFloat2("##outline", &outline.width, 0.0f, 0.05f, "%.4f");
 
+		ImGui::Checkbox("Shadows", &input.shadowMapping);
+
 		ImGui::Checkbox("Light movement", &input.lightMovement);
 		ImGui::Checkbox("Dark background", &input.toggleBackground);
 
@@ -373,16 +375,16 @@ int main()
 		// character
 		shader.use();	
 		shader_config::applyCamera(shader, projection, view, camera.Position);
-		shader_config::applyLightingToggles(shader, input.lighting, input.cellShading, input.rimLighting);
+		shader_config::applyLightingToggles(shader, input.lighting, input.cellShading, input.rimLighting, input.shadowMapping);
 		shader_config::applyMaterial(shader, material);
 		shader_config::applyDirLight(shader, dirLight, colors::whiteLight);
 		shader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
-		shader.setBool("gReceiveShadows", false);
+		shader.setBool("gReceiveShadowMapping", false);
 		shader.setBool("gReceiveRimLighting", true);
 		drawCharacter(shader, charModel, getCharacterModelMatrix());
 
 		// floor
-		shader.setBool("gReceiveShadows", true);
+		shader.setBool("gReceiveShadowMapping", true);
 		shader.setBool("gReceiveRimLighting", false);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, floorTexture);
@@ -406,7 +408,7 @@ int main()
 			glCullFace(GL_BACK);
 		}
 
-		// render depth map to quad for visual debugging
+		// render depth map to quad for visual shadow debugging
 		//debugDepthQuadShader.use();
 		//debugDepthQuadShader.setFloat("near_plane", lightNearPlane);
 		//debugDepthQuadShader.setFloat("far_plane", lightFarPlane);

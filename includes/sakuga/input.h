@@ -16,6 +16,7 @@ public:
     bool cellShading = true;        // C
     bool rimLighting = true;        // R
     bool outline = true;            // O
+    bool shadowMapping = true;
     bool toggleBackground = true;   // B
     bool mouseLook = true;          // TAB
     float mixValue = 0.3f;

@@ -40,7 +40,7 @@ struct Outline
 namespace shader_config
 {
     void applyCamera(Shader& shader, const glm::mat4& projection, const glm::mat4& view, const glm::vec3& viewPos);
-    void applyLightingToggles(Shader& shader, bool lighting, bool cellShading, bool rimLighting);
+    void applyLightingToggles(Shader& shader, bool lighting, bool cellShading, bool rimLighting, bool shadowMapping);
     void applyMaterial(Shader& shader, const Material& material);
     void applyDirLight(Shader& shader, const DirLight& dirLight, glm::vec3& color);
     void applyOutline(Shader& shader, Outline& outline, glm::vec3& color, const glm::mat4& projection, const glm::mat4& view);
