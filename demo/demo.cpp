@@ -127,7 +127,7 @@ void drawFloor(Shader& shader) {
 	glm::mat4 model = glm::mat4(1.0f);
 	model = glm::translate(model, glm::vec3(0.0f, -0.8f, 0.0f));
 	model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-	model = glm::scale(model, glm::vec3(5.0f, 5.0f, 1.0f));	// 5x5 floor
+	model = glm::scale(model, glm::vec3(10.0f, 10.0f, 1.0f));	// 5x5 floor
 	shader.setMat4("model", model);
 	renderPlane();
 }
@@ -270,7 +270,7 @@ int main()
 	Shader depthShader("resources/shaders/depth.vs.glsl", "resources/shaders/depth.fs.glsl");
 	Shader debugDepthQuadShader("resources/shaders/debug_depth_quad.vs.glsl", "resources/shaders/debug_depth_quad.fs.glsl");
 
-	Model charModel("resources/objects/2B/2B-no-skirt-1.glb");
+	Model charModel("resources/objects/2B/2B-1.glb");
 	//Model charModel("resources/objects/ijichi-nijika/1.fbx");
 
 	// shader uniforms
@@ -422,6 +422,7 @@ int main()
 			float speed = 0.7f;
 			float amplitude = 0.8f;
 			dirLight.direction.x = std::sin(currentFrameTime * speed) * amplitude;
+			dirLight.direction.z = std::cos(currentFrameTime * speed) * amplitude;
 		}
 
 		// ui is drawn last so it sits on top of the scene

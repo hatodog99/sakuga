@@ -81,6 +81,8 @@ uniform float toon_bias = 0.26;
 // rim lighting
 uniform bool gRimLightingEnabled;
 uniform bool gReceiveRimLighting;
+uniform mat4 view;
+uniform vec2 rimDirection = vec2(1.0, 1.0);   // screen-space direction: x right, y up; top-right
 uniform vec3 rimColor = vec3(1.0);
 uniform float rimPower = 3.0;
 uniform float rimIntensity = 0.5;
@@ -245,14 +247,20 @@ void main()
         if (gRimLightingEnabled)
         {
             float rimFactor = 1.0 - max(dot(norm, viewDir), 0.0);
-            rimFactor = pow(rimFactor, max(rimPower, 0.001));
-            // rimFactor = smoothstep(0.5, 0.55, rimFactor);   // hard toon edge; remove for a soft glow
-            rim = gReceiveRimLighting ? rimColor * rimFactor * rimIntensity : vec3(0.0);
-        } 
+            rimFactor = pow(rimFactor, max(rimPower, 0.0001));
+            rimFactor = smoothstep(0.5, 0.55, rimFactor);
+
+            // directional mask: only surfaces facing the chosen screen direction
+            vec3 viewNormal = normalize(mat3(view) * norm);
+            float dirMask = dot(normalize(viewNormal.xy), normalize(rimDirection));
+            dirMask = smoothstep(0.3, 0.6, dirMask);
+
+            rim = gReceiveRimLighting ? rimColor * rimFactor * dirMask * rimIntensity : vec3(0.0);
+        }
         
         vec3 lightDir = normalize(-dirLight.direction);
         float shadow = gShadowMappingEnabled ? ShadowCalc(FragPosLightSpace, norm, lightDir) : 0.0;
-        result = (totalAmbient + (1.0 - shadow) * (totalDiffuse + totalSpecular) + rim) * texColor;
+        result = (totalAmbient + (1.0 - shadow) * (totalDiffuse + totalSpecular)) * texColor + rim;
     }
     else
     {
