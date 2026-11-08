@@ -26,14 +26,17 @@ struct Material
 struct DirLight
 {
     glm::vec3 direction = glm::vec3(-0.7f, -0.2f, -1.8f);
-    glm::vec3 ambient = glm::vec3(0.2f);
+    glm::vec3 ambient = glm::vec3(0.6f);
     glm::vec3 diffuse = glm::vec3(0.5f);
     glm::vec3 specular = glm::vec3(0.5f);
+    float ambientIntensity = 1.0f;
+    float diffuseIntensity = 1.0f;
+    float specularIntensity = 1.0f;
 };  
 
 struct ShadowMap
 {
-    glm::vec3 lightDir= glm::vec3(0.0f, -1.0f, 0.0f);
+    glm::vec3 lightDir= glm::vec3(-0.2f, -1.0f, -0.03f);
 };
 
 struct Outline

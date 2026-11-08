@@ -26,9 +26,9 @@ namespace shader_config
     void applyDirLight(Shader& shader, const DirLight& dirLight, glm::vec3& color)
     {
         shader.setVec3("dirLight.direction", dirLight.direction);
-        shader.setVec3("dirLight.ambient", dirLight.ambient);
-        shader.setVec3("dirLight.diffuse", dirLight.diffuse);
-        shader.setVec3("dirLight.specular", dirLight.specular);
+        shader.setVec3("dirLight.ambient", dirLight.ambient * dirLight.ambientIntensity);
+        shader.setVec3("dirLight.diffuse", dirLight.diffuse * dirLight.diffuseIntensity);
+        shader.setVec3("dirLight.specular", dirLight.specular * dirLight.specularIntensity);
         shader.setVec3("dirLight.color", color);
     }
 

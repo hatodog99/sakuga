@@ -1,8 +1,10 @@
 // TODO: 
-// fix shadows crawling and too pixelated on character model's face 
-// (maybe jsut project on floor not char model??)
+// color ramps
+// post-processing: bloom
+// api integration
 // 
-// add perspective shadows
+// nice to haves:
+// perspective shadows
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -20,7 +22,7 @@
 #include <cmath>
 #include <iostream>
 
-// screen
+// screen	
 unsigned int SCR_WIDTH = 1024;
 unsigned int SCR_HEIGHT = 576;
 
@@ -153,7 +155,7 @@ glm::mat4 getCharacterModelMatrix() {
 
 unsigned int depthMapFBO;
 unsigned int depthMap;
-const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+const unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
 void configureDepthMapFBO() {
 	glGenFramebuffers(1, &depthMapFBO);
 
@@ -256,6 +258,11 @@ int main()
 
 	// ImGui
 	gui::init(window);
+	ImGui::GetIO().FontGlobalScale = 1.0f;
+	ImGuiStyle& style = ImGui::GetStyle();
+	style.WindowPadding = ImVec2(6, 6);
+	style.ItemSpacing = ImVec2(6, 3);
+	style.FramePadding = ImVec2(4, 2);
 	 
 	// fps display
 	float fpsTimer = 0.0f;
@@ -313,42 +320,67 @@ int main()
 		input.processInput(window);
 
 		// ui (built first, so edits apply to this frame)
+		float sliderWidth = 150.0f;
 		gui::setMouseEnabled(!input.mouseLook);
 		gui::beginFrame();
 		ImGui::SetNextWindowBgAlpha(0.75f);
 
-		ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoNav);	// so hitting TAB doesn't affect the gui
+		ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoNav | ImGuiWindowFlags_AlwaysAutoResize);
 		ImGui::Text("%.1f FPS (%.2f ms)", displayedFPS, displayedMs);
 
 		ImGui::Separator();
-
+		// ligthing
 		ImGui::Checkbox("lighting", &input.lighting);
-		ImGui::Checkbox("cell shadeing", &input.cellShading);
+		ImGui::Checkbox("cell shading", &input.cellShading);
 		ImGui::Checkbox("rim lighting", &input.rimLighting);
-		ImGui::Checkbox("light movement", &input.lightMovement);
+		ImGui::PushItemWidth(sliderWidth);
+		ImGui::Checkbox("move light", &input.lightMovement);
 		ImGui::SliderFloat("x##light", &dirLight.direction.x, -2.0f, 2.0f);
 		ImGui::SliderFloat("y##light", &dirLight.direction.y, -2.0f, 2.0f);
 		ImGui::SliderFloat("z##light", &dirLight.direction.z, -2.0f, 2.0f);
 
 		ImGui::Separator();
 
+		ImGui::Text("light intensity");
+		ImGui::SliderFloat("ambient", &dirLight.ambientIntensity, 0.0f, 2.0f);
+		ImGui::SliderFloat("diffuse", &dirLight.diffuseIntensity, 0.0f, 2.0f);
+		// disbled when cell shading
+		// --------------------------------------------------------------------
+		ImGui::BeginDisabled(input.cellShading);
+		ImGui::SliderFloat("specular", &dirLight.specularIntensity, 0.0f, 2.0f);
+		ImGui::PopItemWidth();
+
+		ImGui::Separator();
+		// shininess
+		ImGui::Text("material shininess");
+		ImGui::PushItemWidth(sliderWidth);
+		ImGui::SliderFloat("##material", &material.shininess, 1.0f, 128.0f);
+		ImGui::PopItemWidth();
+		ImGui::EndDisabled();
+		// --------------------------------------------------------------------
+
+		ImGui::Separator();
+		// outline
 		ImGui::Checkbox("outline", &input.outline);
+		ImGui::PushItemWidth(sliderWidth);
 		ImGui::SliderFloat("width", &outline.width, 0.0f, 0.01f, "%.4f");
 		ImGui::SliderFloat("depth bias", &outline.depthBias, 0.0f, 0.05f, "%.4f");
+		ImGui::PopItemWidth();
 
 		ImGui::Separator();
-
+		// shadow
 		ImGui::Checkbox("shadow", &input.shadowMapping);
+		ImGui::Text("direction");
+		ImGui::PushItemWidth(sliderWidth);
 		ImGui::SliderFloat("x##shadow", &shadowMap.lightDir.x, -1.0f, 1.0f);
-		ImGui::SliderFloat("y (steepness) ##shadow", &shadowMap.lightDir.y, -2.0f, 2.0f);
+		ImGui::SliderFloat("y (steepness)##shadow", &shadowMap.lightDir.y, -2.0f, 0.0f);
 		ImGui::SliderFloat("z##shadow", &shadowMap.lightDir.z, -1.0f, 1.0f);
+		ImGui::PopItemWidth();
 
 		ImGui::Separator();
-
+		// background color
 		ImGui::Checkbox("toggle background color", &input.toggleBackground);
 
-		//ImGui::Separator();
-		//ImGui::SliderFloat("Shininess", &material.shininess, 1.0f, 128.0f);
 		ImGui::End();
 
 		// background
@@ -357,15 +389,16 @@ int main()
 		else
 			glClearColor(0.90f, 0.90f, 0.90f, 1.0f);	// light
 
+		// clear buffers for every frame
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// render depth of scene to texture (from light's POV) in orthographic view
 		float lightNearPlane = 1.0f, lightFarPlane = 20.0f;
 		float lightDisFromOrig = 7.0f;
 		glm::vec3 lightPos = -glm::normalize(shadowMap.lightDir) * lightDisFromOrig;
-		glm::mat4 lightProjection = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, lightNearPlane, lightFarPlane);
-
 		glm::vec3 up = (fabs(shadowMap.lightDir.y) > 0.99f) ? glm::vec3(0.0f, 0.0f, 1.0f) : glm::vec3(0.0f, 1.0f, 0.0f);
+
+		glm::mat4 lightProjection = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, lightNearPlane, lightFarPlane);
 		glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), up);
 		glm::mat4 lightSpaceMatrix = lightProjection * lightView;
 
@@ -380,7 +413,10 @@ int main()
 
 		// view/projection transformations
 		float aspect = (SCR_HEIGHT > 0) ? (float)SCR_WIDTH / (float)SCR_HEIGHT : 1.0f;
-		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), aspect, 0.1f, 100.0f);
+		float nearPlane = 0.1f;
+		float farPlane = 100.0f;
+
+		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), aspect, nearPlane, farPlane);
 		glm::mat4 view = camera.GetViewMatrix();
 		
 		// rendering
