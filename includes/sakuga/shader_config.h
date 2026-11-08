@@ -33,8 +33,8 @@ struct DirLight
 
 struct Outline
 {
-    float width = 0.005f;	// world units: outline.vs.glsl extrudes along the normal in world space
-    float depthBias = 0.02;
+    float width = 0.0045f;	// world units: outline.vs.glsl extrudes along the normal in world space
+    float depthBias = 0.007;
 };
 
 namespace shader_config
