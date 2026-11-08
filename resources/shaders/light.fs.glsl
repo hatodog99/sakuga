@@ -82,7 +82,7 @@ uniform float toon_bias = 0.26;
 uniform bool gRimLightingEnabled;
 uniform bool gReceiveRimLighting;
 uniform mat4 view;
-uniform vec2 rimDirection = vec2(0.8, 1.0);   // screen-space direction: x right, y up; top-right
+uniform vec2 rimDirection = vec2(-1.0, 1.0);   // screen-space direction: x right, y up; top-left
 uniform vec3 rimColor = vec3(1.0);
 uniform float rimPower = 3.0;
 uniform float rimIntensity = 0.5;
@@ -240,7 +240,7 @@ void main()
             float toon = ceil(pow(toon_intensity, toon_bias) * float(toon_color_levels)) * toon_scale_factor;
 
             totalDiffuse = (toon_intensity > 0.0) ? totalDiffuse * (toon / toon_intensity) : vec3(0.0);
-            // totalSpecular = vec3(0.0);
+            totalSpecular = vec3(0.0);  // no total spec
         }
     
         vec3 rim = vec3(0.0);
@@ -260,7 +260,7 @@ void main()
         
         vec3 lightDir = normalize(-dirLight.direction);
         float shadow = gShadowMappingEnabled ? ShadowCalc(FragPosLightSpace, norm, lightDir) : 0.0;
-        result = (totalAmbient + (1.0 - shadow) * (totalDiffuse + totalSpecular)) * texColor + rim;
+        result = (totalAmbient + (1.0 - shadow) * totalDiffuse) * texColor + (1.0 - shadow) * totalSpecular + rim;
     }
     else
     {
