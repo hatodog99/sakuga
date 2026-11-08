@@ -82,7 +82,7 @@ uniform float toon_bias = 0.26;
 uniform bool gRimLightingEnabled;
 uniform bool gReceiveRimLighting;
 uniform mat4 view;
-uniform vec2 rimDirection = vec2(-1.0, 1.0);   // screen-space direction: x right, y up; top-left
+uniform vec2 rimDirection = vec2(-0.65, 1.0);   // screen-space direction: x right, y up; top-left
 uniform vec3 rimColor = vec3(1.0);
 uniform float rimPower = 3.0;
 uniform float rimIntensity = 0.5;
