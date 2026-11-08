@@ -127,7 +127,7 @@ void drawFloor(Shader& shader) {
 	glm::mat4 model = glm::mat4(1.0f);
 	model = glm::translate(model, glm::vec3(0.0f, -0.8f, 0.0f));
 	model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-	model = glm::scale(model, glm::vec3(10.0f, 10.0f, 1.0f));	// 5x5 floor
+	model = glm::scale(model, glm::vec3(7.0f, 7.0f, 1.0f));	// 7x7 floor
 	shader.setMat4("model", model);
 	renderPlane();
 }
@@ -275,6 +275,7 @@ int main()
 
 	// shader uniforms
 	DirLight dirLight;
+	ShadowMap shadowMap;
 	Material material;
 	Outline outline;
 
@@ -314,31 +315,40 @@ int main()
 		// ui (built first, so edits apply to this frame)
 		gui::setMouseEnabled(!input.mouseLook);
 		gui::beginFrame();
+		ImGui::SetNextWindowBgAlpha(0.75f);
 
-		ImGui::SetNextWindowBgAlpha(0.6f);
 		ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoNav);	// so hitting TAB doesn't affect the gui
 		ImGui::Text("%.1f FPS (%.2f ms)", displayedFPS, displayedMs);
 
 		ImGui::Separator();
-		
-		ImGui::Checkbox("Lighting", &input.lighting);
-		ImGui::Checkbox("Cell shading", &input.cellShading);
-		ImGui::Checkbox("Rim lighting", &input.rimLighting);
 
-		ImGui::Checkbox("Outline", &input.outline);
-		ImGui::SameLine();
-		ImGui::SetNextItemWidth(-1.0f);
-		ImGui::SliderFloat2("##outline", &outline.width, 0.0f, 0.05f, "%.4f");
-
-		ImGui::Checkbox("Shadows", &input.shadowMapping);
-
-		ImGui::Checkbox("Light movement", &input.lightMovement);
-		ImGui::Checkbox("Dark background", &input.toggleBackground);
+		ImGui::Checkbox("lighting", &input.lighting);
+		ImGui::Checkbox("cell shadeing", &input.cellShading);
+		ImGui::Checkbox("rim lighting", &input.rimLighting);
+		ImGui::Checkbox("light movement", &input.lightMovement);
+		ImGui::SliderFloat("x##light", &dirLight.direction.x, -2.0f, 2.0f);
+		ImGui::SliderFloat("y##light", &dirLight.direction.y, -2.0f, 2.0f);
+		ImGui::SliderFloat("z##light", &dirLight.direction.z, -2.0f, 2.0f);
 
 		ImGui::Separator();
 
-		ImGui::SliderFloat3("Light direction", &dirLight.direction.x, -2.0f, 2.0f);
-		ImGui::SliderFloat("Shininess", &material.shininess, 1.0f, 128.0f);
+		ImGui::Checkbox("outline", &input.outline);
+		ImGui::SliderFloat("width", &outline.width, 0.0f, 0.01f, "%.4f");
+		ImGui::SliderFloat("depth bias", &outline.depthBias, 0.0f, 0.05f, "%.4f");
+
+		ImGui::Separator();
+
+		ImGui::Checkbox("shadow", &input.shadowMapping);
+		ImGui::SliderFloat("x##shadow", &shadowMap.lightDir.x, -1.0f, 1.0f);
+		ImGui::SliderFloat("y (steepness) ##shadow", &shadowMap.lightDir.y, -2.0f, 2.0f);
+		ImGui::SliderFloat("z##shadow", &shadowMap.lightDir.z, -1.0f, 1.0f);
+
+		ImGui::Separator();
+
+		ImGui::Checkbox("toggle background color", &input.toggleBackground);
+
+		//ImGui::Separator();
+		//ImGui::SliderFloat("Shininess", &material.shininess, 1.0f, 128.0f);
 		ImGui::End();
 
 		// background
@@ -351,9 +361,12 @@ int main()
 
 		// render depth of scene to texture (from light's POV) in orthographic view
 		float lightNearPlane = 1.0f, lightFarPlane = 20.0f;
-		glm::vec3 lightPos = -glm::normalize(dirLight.direction) * 7.0f;
+		float lightDisFromOrig = 7.0f;
+		glm::vec3 lightPos = -glm::normalize(shadowMap.lightDir) * lightDisFromOrig;
 		glm::mat4 lightProjection = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, lightNearPlane, lightFarPlane);
-		glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+		glm::vec3 up = (fabs(shadowMap.lightDir.y) > 0.99f) ? glm::vec3(0.0f, 0.0f, 1.0f) : glm::vec3(0.0f, 1.0f, 0.0f);
+		glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), up);
 		glm::mat4 lightSpaceMatrix = lightProjection * lightView;
 
 		// depth map (used for rendering shadows)
@@ -423,6 +436,9 @@ int main()
 			float amplitude = 0.8f;
 			dirLight.direction.x = std::sin(currentFrameTime * speed) * amplitude;
 			dirLight.direction.z = std::cos(currentFrameTime * speed) * amplitude;
+
+			//shadowMap.lightDir.x = std::sin(currentFrameTime * speed);
+			//shadowMap.lightDir.z = std::cos(currentFrameTime * speed);
 		}
 
 		// ui is drawn last so it sits on top of the scene

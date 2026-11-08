@@ -31,6 +31,11 @@ struct DirLight
     glm::vec3 specular = glm::vec3(0.5f);
 };  
 
+struct ShadowMap
+{
+    glm::vec3 lightDir= glm::vec3(0.0f, -1.0f, 0.0f);
+};
+
 struct Outline
 {
     float width = 0.0045f;	// world units: outline.vs.glsl extrudes along the normal in world space
