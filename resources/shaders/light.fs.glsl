@@ -1,5 +1,6 @@
 #version 330 core
-out vec4 FragColor;
+layout (location = 0) out vec4 FragColor;
+layout (location = 1) out vec4 BrightColor;     // bloom: bright regions only
 
 struct Material {
     vec3 specular;
@@ -90,6 +91,10 @@ uniform float rimIntensity = 0.5;
 // shadows
 uniform bool gShadowMappingEnabled;
 uniform bool gReceiveShadowMapping;
+
+// bloom
+uniform float bloomThreshold = 0.8;     // luminance (after gamma) above which a pixel starts to glow
+uniform bool gReceiveBloom = true;      // set false for surfaces that shouldn't glow (floor)
 
 // pixels with alpha below this are discarded (fixes black borders on hair/feathers)
 const float ALPHA_CUTOFF = 0.5;
@@ -273,5 +278,12 @@ void main()
     }
 
     result = clamp(result, 0.0, 1.0);
-    FragColor = vec4(pow(result, vec3(1.0/gamma)), 1.0); // linear -> sRGB
+    vec3 finalColor = pow(result, vec3(1.0/gamma));     // linear -> sRGB
+    FragColor = vec4(finalColor, 1.0);
+
+    // bloom: extract bright regions with a soft knee so the glow fades in instead of popping.
+    // (toon-shaded output is clamped to 1.0, so the threshold has to sit below 1.0)
+    float brightness = dot(finalColor, vec3(0.2126, 0.7152, 0.0722));
+    float knee = smoothstep(bloomThreshold, bloomThreshold + 0.2, brightness);
+    BrightColor = vec4(gReceiveBloom ? finalColor * knee : vec3(0.0), 1.0);
 }
