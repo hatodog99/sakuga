@@ -449,9 +449,9 @@ int main()
 		if (gui::beginPanel(left, "Render passes"))
 		{
 			ImGui::Checkbox("Lighting", &input.lighting);
+			ImGui::Checkbox("Shadow mapping", &input.shadowMapping);
 			ImGui::Checkbox("Toon shading", &input.cellShading);
 			ImGui::Checkbox("Outlines", &input.outline);
-			ImGui::Checkbox("Shadow mapping", &input.shadowMapping);
 			ImGui::Checkbox("Rim lighting", &input.rimLighting);
 			ImGui::Checkbox("Post-processing", &postProcessing);			// placeholder
 			ImGui::PushItemWidth(W);
@@ -481,40 +481,6 @@ int main()
 
 		// ---- right column ----
 		gui::PanelStack right = gui::rightColumn();
-
-		if (gui::beginPanel(right, "Shading"))
-		{
-			ImGui::Checkbox("Lighting", &input.lighting);
-			ImGui::Checkbox("Toon shading##shading", &input.cellShading);
-			ImGui::PushItemWidth(W);
-			ImGui::SliderInt("Toon levels", &ramp.levels, 2, 8);
-			ImGui::SliderFloat("Softness", &ramp.softness, 0.0f, 0.2f, "%.3f");
-			ImGui::PopItemWidth();
-
-			gui::sectionLabel("Color ramp");
-			gui::rampStrip(ramp.shadow, ramp.mid, ramp.light, ramp.levels);
-			gui::colorRow("Shadow", ramp.shadow);
-			gui::colorRow("Mid", ramp.mid);
-			gui::colorRow("Light", ramp.light);
-			if (ImGui::Button("Reset##ramp"))
-			{
-				int lv = ramp.levels;
-				ramp = ColorRamp();
-				ramp.levels = lv;
-			}
-		}
-		gui::endPanel(right);
-
-		if (gui::beginPanel(right, "Outlines"))
-		{
-			ImGui::Checkbox("Enable##outline", &input.outline);
-			ImGui::PushItemWidth(W);
-			ImGui::SliderFloat("Width", &outline.width, 0.0f, 0.01f, "%.4f");
-			ImGui::SliderFloat("Depth bias", &outline.depthBias, 0.0f, 0.05f, "%.4f");
-			ImGui::PopItemWidth();
-			gui::colorRow("Color", outline.color);
-		}
-		gui::endPanel(right);
 
 		if (gui::beginPanel(right, "Lighting"))
 		{
@@ -549,6 +515,40 @@ int main()
 				}
 				ImGui::EndTabBar();
 			}
+		}
+		gui::endPanel(right);
+
+		if (gui::beginPanel(right, "Shading"))
+		{
+			ImGui::Checkbox("Lighting", &input.lighting);
+			ImGui::Checkbox("Toon shading##shading", &input.cellShading);
+			ImGui::PushItemWidth(W);
+			ImGui::SliderInt("Toon levels", &ramp.levels, 2, 8);
+			ImGui::SliderFloat("Softness", &ramp.softness, 0.0f, 0.2f, "%.3f");
+			ImGui::PopItemWidth();
+
+			gui::sectionLabel("Color ramp");
+			gui::rampStrip(ramp.shadow, ramp.mid, ramp.light, ramp.levels);
+			gui::colorRow("Shadow", ramp.shadow);
+			gui::colorRow("Mid", ramp.mid);
+			gui::colorRow("Light", ramp.light);
+			if (ImGui::Button("Reset##ramp"))
+			{
+				int lv = ramp.levels;
+				ramp = ColorRamp();
+				ramp.levels = lv;
+			}
+		}
+		gui::endPanel(right);
+
+		if (gui::beginPanel(right, "Outlines"))
+		{
+			ImGui::Checkbox("Enable##outline", &input.outline);
+			ImGui::PushItemWidth(W);
+			ImGui::SliderFloat("Width", &outline.width, 0.0f, 0.01f, "%.4f");
+			ImGui::SliderFloat("Depth bias", &outline.depthBias, 0.0f, 0.05f, "%.4f");
+			ImGui::PopItemWidth();
+			gui::colorRow("Color", outline.color);
 		}
 		gui::endPanel(right);
 
