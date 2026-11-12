@@ -27,9 +27,9 @@ unsigned int SCR_WIDTH = 1024;
 unsigned int SCR_HEIGHT = 576;
 
 // gui scale = window size / this reference size. A bigger reference gives a smaller gui:
-// 1249x702 puts the gui at ~0.82x in the default 1024x576 window (both sides limit equally).
-const float GUI_BASE_WIDTH = 1249.0f;
-const float GUI_BASE_HEIGHT = 702.0f;
+// 1280x720 puts the gui at ~0.77x in the default 1024x576 window (both sides limit equally).
+const float GUI_BASE_WIDTH = 1329.87f;
+const float GUI_BASE_HEIGHT = 748.05f;
 
 // camera (driven by Input: WASD, mouse look, scroll zoom)
 glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
