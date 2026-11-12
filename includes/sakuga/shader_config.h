@@ -25,9 +25,9 @@ struct Material
 
 struct DirLight
 {
-    glm::vec3 direction = glm::vec3(-0.7f, -0.2f, -1.8f);
-    glm::vec3 ambient = glm::vec3(0.6f);
-    glm::vec3 diffuse = glm::vec3(0.5f);
+    glm::vec3 direction = glm::vec3(-0.504f, -0.2f, -1.8f);
+    glm::vec3 ambient = glm::vec3(0.7f);
+    glm::vec3 diffuse = glm::vec3(0.7f);
     glm::vec3 specular = glm::vec3(0.5f);
     float ambientIntensity = 1.57f;
     float diffuseIntensity = 1.0f;
