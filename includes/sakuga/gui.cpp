@@ -1,6 +1,7 @@
 #include <sakuga/gui.h>
 
 #include <imgui/imgui.h>
+#include <imgui/imgui_internal.h>   // OpenPopupStack / ClosePopupToLevel (no public "close all popups")
 #include <imgui/backend/imgui_impl_glfw.h>
 #include <imgui/backend/imgui_impl_opengl3.h>
 
@@ -86,11 +87,23 @@ namespace gui
 
     void setMouseEnabled(bool enabled)
     {
+        static bool wasEnabled = true;
+
         ImGuiIO& io = ImGui::GetIO();
         if (enabled)
             io.ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
         else
             io.ConfigFlags |= ImGuiConfigFlags_NoMouse;
+
+        // the mouse was just captured (Tab): popups like the color picker can no longer be
+        // clicked away, so close them instead of leaving them stuck open
+        if (wasEnabled && !enabled)
+        {
+            ImGuiContext& g = *ImGui::GetCurrentContext();
+            if (g.OpenPopupStack.Size > 0)
+                ImGui::ClosePopupToLevel(0, true);
+        }
+        wasEnabled = enabled;
     }
 
     // ---- panel layout -------------------------------------------------------
