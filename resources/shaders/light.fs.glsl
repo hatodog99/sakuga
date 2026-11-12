@@ -1,108 +1,79 @@
 #version 330 core
-layout (location = 0) out vec4 FragColor;
-layout (location = 1) out vec4 BrightColor;     // bloom: bright regions only
-
-struct Material {
-    vec3 specular;
-    float shininess;
-}; 
-
-struct DirLight {
-    vec3 direction;
-	
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
-
-    vec3 color;
-};
-
-struct PointLight {
-    vec3 position;
-    
-    float constant;
-    float linear;
-    float quadratic;
-	
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;
-
-    vec3 color;
-};
-
-struct SpotLight {
-    vec3 position;
-    vec3 direction;
-    float cutOff;
-    float outerCutOff;
-  
-    float constant;
-    float linear;
-    float quadratic;
-  
-    vec3 ambient;
-    vec3 diffuse;
-    vec3 specular;       
-
-    vec3 color;
-};
-
-#define NR_POINT_LIGHTS 1
+out vec4 FragColor;
 
 in vec3 FragPos;
 in vec3 Normal;
 in vec2 TexCoords;
 in vec4 FragPosLightSpace;
 
-// shadow stuff
-uniform sampler2D diffuseTexture;
+// ----------------------------------------------------------------------------
+// structs
+// ----------------------------------------------------------------------------
+struct Material {
+    vec3 specular;
+    float shininess;
+};
+
+struct DirLight {
+    vec3 direction;     // direction the light travels
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
+    vec3 color;
+};
+
+struct ColorRamp {
+    vec3 shadow;
+    vec3 mid;
+    vec3 light;
+    int levels;         // number of flat bands (2-8)
+    float softness;     // 0 = hard edge
+};
+
+// ----------------------------------------------------------------------------
+// uniforms
+// ----------------------------------------------------------------------------
+uniform sampler2D texture_diffuse1;
 uniform sampler2D shadowMap;
 
-uniform vec3 lightPos;
+uniform mat4 view;
 uniform vec3 viewPos;
 
 uniform DirLight dirLight;
-uniform PointLight pointLights[NR_POINT_LIGHTS];
-uniform SpotLight spotLight;
 uniform Material material;
-uniform sampler2D texture_diffuse1;
+uniform ColorRamp ramp;
 
-// attributes
-// ----------------------------------------------------------------------------
-// lighting
+// toggles
 uniform bool gLightingEnabled;
-
-// toon shading
 uniform bool gCellShadingEnabled;
-const float toon_color_levels = 3.0;
-const float toon_scale_factor = 1.0 / toon_color_levels;
-uniform float toon_bias = 0.26;
-
-// rim lighting
 uniform bool gRimLightingEnabled;
 uniform bool gReceiveRimLighting;
-uniform mat4 view;
-uniform vec2 rimDirection = vec2(-0.65, 1.0);   // screen-space direction: x right, y up; top-left
+uniform bool gShadowMappingEnabled;
+uniform bool gReceiveShadowMapping;
+
+// rim lighting
+uniform vec2 rimDirection = vec2(-0.65, 1.0);   // screen space: x right, y up
 uniform vec3 rimColor = vec3(1.0);
 uniform float rimPower = 3.0;
 uniform float rimIntensity = 0.5;
 
-// shadows
-uniform bool gShadowMappingEnabled;
-uniform bool gReceiveShadowMapping;
-
-// bloom
-uniform float bloomThreshold = 0.8;     // luminance (after gamma) above which a pixel starts to glow
-uniform bool gReceiveBloom = true;      // set false for surfaces that shouldn't glow (floor)
-
-// pixels with alpha below this are discarded (fixes black borders on hair/feathers)
+// pixels with alpha below this are discarded (fixes black borders on hair)
 const float ALPHA_CUTOFF = 0.5;
+const float GAMMA = 2.2;
 
-float gamma = 2.2f;
+// cast shadows darken to this fraction of the ramp's shadow color, so they stay
+// visible even on surfaces already in the lowest toon band (e.g. the floor)
+const float CAST_SHADOW_DARKEN = 0.6;
 
+// DirLight::ambient default (shader_config.h); toon mode scales overall brightness by
+// ambient / AMBIENT_REF, so the default ambient intensity of 1.0 leaves the look unchanged
+const float AMBIENT_REF = 0.6;
+
+// ----------------------------------------------------------------------------
+// lighting
+// ----------------------------------------------------------------------------
 void CalcDirLight(DirLight light, vec3 normal, vec3 viewDir,
-                   out vec3 ambient, out vec3 diffuse, out vec3 specular)
+                  out vec3 ambient, out vec3 diffuse, out vec3 specular)
 {
     vec3 lightDir = normalize(-light.direction);
     float diff = max(dot(normal, lightDir), 0.0);
@@ -111,76 +82,50 @@ void CalcDirLight(DirLight light, vec3 normal, vec3 viewDir,
     float spec = pow(max(dot(normal, halfwayDir), 0.0), material.shininess);
     spec *= step(0.0, diff);   // no highlight on surfaces facing away from the light
 
-    ambient = light.ambient * light.color;
-    diffuse = light.diffuse * diff * light.color;
+    ambient  = light.ambient * light.color;
+    diffuse  = light.diffuse * diff * light.color;
     specular = light.specular * spec * material.specular * light.color;
 }
 
-
-void CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec3 texColor,
-                     out vec3 ambient, out vec3 diffuse, out vec3 specular)
+// splits N.L into `levels` flat bands and picks the ramp color for each:
+// first band = shadow, middle = midtone, last = highlight
+vec3 RampColor(float ndl)
 {
-    vec3 lightDir = normalize(light.position - fragPos);
-    float diff = max(dot(normal, lightDir), 0.0);
+    int n = clamp(ramp.levels, 2, 8);
+    float s = max(ramp.softness, 0.0001);
 
-    vec3 halfwayDir = normalize(lightDir + viewDir);
-    float spec = pow(max(dot(normal, halfwayDir), 0.0), material.shininess);
-    spec *= step(0.0, diff);   // no highlight on surfaces facing away from the light
+    float t = 0.0;
+    for (int i = 1; i < n; ++i)
+    {
+        float edge = float(i) / float(n);
+        t += smoothstep(edge - s, edge + s, ndl);
+    }
+    t /= float(n - 1);
 
-    float distance = length(light.position - fragPos);
-    float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));    
-
-    ambient = light.ambient * attenuation * light.color;
-    diffuse = light.diffuse * diff * attenuation * light.color;
-    specular = light.specular * spec * material.specular * attenuation * light.color;
+    return (t < 0.5) ? mix(ramp.shadow, ramp.mid, t * 2.0)
+                     : mix(ramp.mid, ramp.light, (t - 0.5) * 2.0);
 }
 
-vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir, vec3 texColor)
+// ----------------------------------------------------------------------------
+// shadows
+// ----------------------------------------------------------------------------
+float ShadowCalc(vec4 fragPosLightSpace)
 {
-    vec3 lightDir = normalize(light.position - fragPos);
-    float diff = max(dot(normal, lightDir), 0.0);
+    if (!gReceiveShadowMapping)
+        return 0.0;
 
-    vec3 halfwayDir = normalize(lightDir + viewDir);
-    float spec = pow(max(dot(normal, halfwayDir), 0.0), material.shininess);
-    spec *= step(0.0, diff);   // no highlight on surfaces facing away from the light
+    // perspective divide, then [-1,1] -> [0,1] for texture coords and depth
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    projCoords = projCoords * 0.5 + 0.5;
 
-    float distance = length(light.position - fragPos);
-    float attenuation = 1.0 / (light.constant + light.linear * distance + light.quadratic * (distance * distance));    
-
-    float theta = dot(lightDir, normalize(-light.direction)); 
-    float epsilon = light.cutOff - light.outerCutOff;
-    float intensity = clamp((theta - light.outerCutOff) / epsilon, 0.0, 1.0);
-
-    vec3 ambient = light.ambient * texColor;
-    vec3 diffuse = light.color * light.diffuse * diff * texColor;
-    vec3 specular = light.specular * spec * material.specular;
-    ambient *= attenuation * intensity;
-    diffuse *= attenuation * intensity;
-    specular *= attenuation * intensity;
-
-    return (ambient + diffuse + specular);
-}
-
-float ShadowCalc(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
-{
-    if (!gReceiveShadowMapping) return 0.0;
-
-    // calculate perspective divide
-    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w; 
-    projCoords = projCoords * 0.5 + 0.5;    // transform to [0,1] range for texture coords & depth values
+    // beyond the light's far plane: not in shadow
     if (projCoords.z > 1.0)
         return 0.0;
 
-    float closestDepth = texture(shadowMap, projCoords.xy).r;   // get closest depth value from light's POV
     float currentDepth = projCoords.z;
+    float bias = 0.0;   // only the character is in the depth map, so no self-shadowing on the floor
 
-    // check whether current frag pos is in shadow
-    // float bias = max(0.002 * (1.0 - dot(normal, lightDir)), 0.005);
-    float bias = 0.0;
-
-    // check whether current frag pos is in shadow
-    // float shadow = currentDepth - bias > closestDepth  ? 1.0 : 0.0;
-    // PCF
+    // PCF: average a 3x3 block of samples
     float shadow = 0.0;
     vec2 texelSize = 3.0 / textureSize(shadowMap, 0);
     for (int x = -1; x <= 1; ++x)
@@ -188,14 +133,34 @@ float ShadowCalc(vec4 fragPosLightSpace, vec3 normal, vec3 lightDir)
         for (int y = -1; y <= 1; ++y)
         {
             float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
-            shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
+            shadow += (currentDepth - bias > pcfDepth) ? 1.0 : 0.0;
         }
     }
-    shadow /= 9.0;
-    return shadow;
-    // return smoothstep(0.3, 0.7, shadow);
+    return shadow / 9.0;
 }
 
+// ----------------------------------------------------------------------------
+// rim light
+// ----------------------------------------------------------------------------
+vec3 CalcRim(vec3 normal, vec3 viewDir)
+{
+    if (!gRimLightingEnabled || !gReceiveRimLighting)
+        return vec3(0.0);
+
+    float rimFactor = 1.0 - max(dot(normal, viewDir), 0.0);
+    rimFactor = pow(rimFactor, max(rimPower, 0.0001));
+    rimFactor = smoothstep(0.5, 0.55, rimFactor);   // hard toon edge
+
+    // directional mask: only surfaces facing the chosen screen direction
+    vec2 n2 = (mat3(view) * normal).xy;
+    float nLen = length(n2);
+    float dirMask = (nLen > 0.001) ? dot(n2 / nLen, normalize(rimDirection)) : 0.0;
+    dirMask = smoothstep(0.3, 0.6, dirMask);
+
+    return rimColor * rimFactor * dirMask * rimIntensity;
+}
+
+// ----------------------------------------------------------------------------
 void main()
 {
     // sample once, discard transparent pixels, reuse the color below
@@ -210,67 +175,32 @@ void main()
     {
         vec3 norm = normalize(Normal);
         vec3 viewDir = normalize(viewPos - FragPos);
-    
-        vec3 totalAmbient = vec3(0.0);
-        vec3 totalDiffuse = vec3(0.0);
-        vec3 totalSpecular = vec3(0.0);
+        vec3 lightDir = normalize(-dirLight.direction);
 
-        vec3 a, d, s;
+        vec3 ambient, diffuse, specular;
+        CalcDirLight(dirLight, norm, viewDir, ambient, diffuse, specular);
 
-        // dir light
-        CalcDirLight(dirLight, norm, viewDir, a, d, s);
-        totalAmbient += a;
-        totalDiffuse += d;
-        totalSpecular += s;
-    
-        // point lights
-        /*
-        for(int i = 0; i < NR_POINT_LIGHTS; i++)
-        {
-            CalcPointLight(pointLights[i], norm, FragPos, viewDir, texColor, a, d, s);
-            totalAmbient += a;
-            totalDiffuse += d;
-            totalSpecular += s;
-        }
-        */
-
-        // spot light
-        // result += CalcSpotLight(spotLight, norm, FragPos, viewDir, texColor);
+        vec3 rim = CalcRim(norm, viewDir);
+        float shadow = gShadowMappingEnabled ? ShadowCalc(FragPosLightSpace) : 0.0;
 
         if (gCellShadingEnabled)
         {
-            float r = 0.299;
-            float g = 0.587;
-            float b = 0.114;
-            float toon_intensity = dot(totalDiffuse, vec3(r, g, b));
-            toon_intensity = clamp(toon_intensity, 0.0, 1.0);
-
-            float toon = ceil(pow(toon_intensity, toon_bias) * float(toon_color_levels)) * toon_scale_factor;
-
-            totalDiffuse = (toon_intensity > 0.0) ? totalDiffuse * (toon / toon_intensity) : vec3(0.0);
-            totalSpecular = vec3(0.0);  // get rid of specular hightlights
+            // toon: ramp color by N.L, cast shadows blend to a darkened ramp shadow color
+            float ndl = max(dot(norm, lightDir), 0.0);
+            float ambientScale = dot(dirLight.ambient, vec3(1.0 / 3.0)) / AMBIENT_REF;
+            vec3 toon = mix(RampColor(ndl), ramp.shadow * CAST_SHADOW_DARKEN, shadow)
+                      * dirLight.color * ambientScale;
+            result = toon * texColor + rim;
         }
-    
-        vec3 rim = vec3(0.0);
-        if (gRimLightingEnabled)
+        else
         {
-            float rimFactor = 1.0 - max(dot(norm, viewDir), 0.0);
-            rimFactor = pow(rimFactor, max(rimPower, 0.0001));
-            
-            // smoothstep(float edge0, float edge1, genType x);
-            rimFactor = smoothstep(0.5, 0.55, rimFactor);
-
-            // directional mask: only surfaces facing the chosen screen direction
-            vec3 viewNormal = normalize(mat3(view) * norm);
-            float dirMask = dot(normalize(viewNormal.xy), normalize(rimDirection));
-            dirMask = smoothstep(0.3, 0.6, dirMask);
-
-            rim = gReceiveRimLighting ? rimColor * rimFactor * dirMask * rimIntensity : vec3(0.0);
+            // shadow also dims the ambient term, otherwise it is invisible on surfaces
+            // that get little diffuse light (e.g. the floor)
+            vec3 shadowedAmbient = ambient * mix(1.0, CAST_SHADOW_DARKEN, shadow);
+            result = (shadowedAmbient + (1.0 - shadow) * diffuse) * texColor
+                   + (1.0 - shadow) * specular
+                   + rim;
         }
-        
-        vec3 lightDir = normalize(-dirLight.direction);
-        float shadow = gShadowMappingEnabled ? ShadowCalc(FragPosLightSpace, norm, lightDir) : 0.0;
-        result = (totalAmbient + (1.0 - shadow) * totalDiffuse) * texColor + (1.0 - shadow) * totalSpecular + rim;
     }
     else
     {
@@ -278,12 +208,5 @@ void main()
     }
 
     result = clamp(result, 0.0, 1.0);
-    vec3 finalColor = pow(result, vec3(1.0/gamma));     // linear -> sRGB
-    FragColor = vec4(finalColor, 1.0);
-
-    // bloom: extract bright regions with a soft knee so the glow fades in instead of popping.
-    // (toon-shaded output is clamped to 1.0, so the threshold has to sit below 1.0)
-    float brightness = dot(finalColor, vec3(0.2126, 0.7152, 0.0722));
-    float knee = smoothstep(bloomThreshold, bloomThreshold + 0.2, brightness);
-    BrightColor = vec4(gReceiveBloom ? finalColor * knee : vec3(0.0), 1.0);
+    FragColor = vec4(pow(result, vec3(1.0 / GAMMA)), 1.0);   // linear -> sRGB
 }

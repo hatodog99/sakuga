@@ -1,10 +1,10 @@
 // TODO: 
 // color ramps
+// post-processing: bloom
 // api integration
 // 
 // nice to haves:
 // perspective shadows
-// half-res / multi-scale bloom blur
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -19,12 +19,18 @@
 #include <sakuga/shader.h>
 #include <sakuga/shader_config.h>
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 
-// screen	
+// screen
 unsigned int SCR_WIDTH = 1024;
 unsigned int SCR_HEIGHT = 576;
+
+// gui scale = window size / this reference size. A bigger reference gives a smaller gui:
+// 1270x550 puts the gui at ~0.81x in the default 1024x576 window (width is the limiting side).
+const float GUI_BASE_WIDTH = 1270.0f;
+const float GUI_BASE_HEIGHT = 550.0f;
 
 // camera (driven by Input: WASD, mouse look, scroll zoom)
 glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
@@ -37,103 +43,11 @@ float currentFrameTime = 0.0f;
 
 Input input(camera, deltaTime);
 
-// bloom / post-processing buffers
-// ----------------------------------------------------------------------------
-const int MSAA_SAMPLES = 4;
-unsigned int msaaFBO = 0;
-unsigned int msaaColor[2];			// [0] scene color, [1] bright regions (multisampled)
-unsigned int msaaDepthRBO;
-unsigned int hdrFBO;
-unsigned int hdrColor[2];			// resolved (single-sample) copies of the above
-unsigned int pingFBO[2];
-unsigned int pingTex[2];			// blur ping-pong
-
-unsigned int makeHdrTexture(int w, int h) {
-	unsigned int tex;
-	glGenTextures(1, &tex);
-	glBindTexture(GL_TEXTURE_2D, tex);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, w, h, 0, GL_RGBA, GL_FLOAT, NULL);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	return tex;
-}
-
-void destroyBloomBuffers() {
-	if (!msaaFBO) return;
-	glDeleteFramebuffers(1, &msaaFBO);
-	glDeleteTextures(2, msaaColor);
-	glDeleteRenderbuffers(1, &msaaDepthRBO);
-	glDeleteFramebuffers(1, &hdrFBO);
-	glDeleteTextures(2, hdrColor);
-	glDeleteFramebuffers(2, pingFBO);
-	glDeleteTextures(2, pingTex);
-	msaaFBO = 0;
-}
-
-void configureBloomBuffers(int w, int h) {
-	destroyBloomBuffers();
-	const unsigned int attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
-
-	// multisampled scene target: 2 color buffers + depth/stencil
-	glGenFramebuffers(1, &msaaFBO);
-	glBindFramebuffer(GL_FRAMEBUFFER, msaaFBO);
-	glGenTextures(2, msaaColor);
-	for (unsigned int i = 0; i < 2; i++) {
-		glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, msaaColor[i]);
-		glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, MSAA_SAMPLES, GL_RGBA16F, w, h, GL_TRUE);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D_MULTISAMPLE, msaaColor[i], 0);
-	}
-	glDrawBuffers(2, attachments);
-	glGenRenderbuffers(1, &msaaDepthRBO);
-	glBindRenderbuffer(GL_RENDERBUFFER, msaaDepthRBO);
-	glRenderbufferStorageMultisample(GL_RENDERBUFFER, MSAA_SAMPLES, GL_DEPTH24_STENCIL8, w, h);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, msaaDepthRBO);
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-		std::cout << "msaa FBO not complete" << std::endl;
-
-	// resolve target (no depth needed)
-	glGenFramebuffers(1, &hdrFBO);
-	glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
-	for (unsigned int i = 0; i < 2; i++) {
-		hdrColor[i] = makeHdrTexture(w, h);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, hdrColor[i], 0);
-	}
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-		std::cout << "hdr FBO not complete" << std::endl;
-
-	// ping-pong blur buffers
-	glGenFramebuffers(2, pingFBO);
-	for (unsigned int i = 0; i < 2; i++) {
-		glBindFramebuffer(GL_FRAMEBUFFER, pingFBO[i]);
-		pingTex[i] = makeHdrTexture(w, h);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pingTex[i], 0);
-		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-			std::cout << "ping-pong FBO not complete" << std::endl;
-	}
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
-// MSAA -> single-sample (both color attachments)
-void resolveSceneBuffers(int w, int h) {
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, msaaFBO);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, hdrFBO);
-	for (unsigned int i = 0; i < 2; i++) {
-		glReadBuffer(GL_COLOR_ATTACHMENT0 + i);
-		glDrawBuffer(GL_COLOR_ATTACHMENT0 + i);
-		glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-	}
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
 	SCR_WIDTH = width;
 	SCR_HEIGHT = height;
 	glViewport(0, 0, width, height);
-	if (width > 0 && height > 0)	// skip when minimized
-		configureBloomBuffers(width, height);
 }
 
 // renderQuad() renders a 1x1 XY quad in NDC
@@ -167,22 +81,6 @@ void renderQuad()
 	glBindVertexArray(quadVAO);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	glBindVertexArray(0);
-}
-
-// two-pass gaussian blur of the bright buffer; returns the texture holding the result
-unsigned int blurBrightness(Shader& blurShader, int passes) {
-	bool horizontal = true, first = true;
-	blurShader.use();
-	glActiveTexture(GL_TEXTURE0);
-	for (int i = 0; i < passes * 2; i++) {
-		glBindFramebuffer(GL_FRAMEBUFFER, pingFBO[horizontal]);
-		blurShader.setBool("horizontal", horizontal);
-		glBindTexture(GL_TEXTURE_2D, first ? hdrColor[1] : pingTex[!horizontal]);
-		renderQuad();
-		horizontal = !horizontal;
-		first = false;
-	}
-	return pingTex[!horizontal];
 }
 
 // render 1x1 plane in normalized device coords
@@ -252,12 +150,23 @@ void drawOutline(Shader& shader, Model& charModel, const glm::mat4& model) {
 	charModel.Draw(shader);
 }
 
-const float charModelScale = 1.0f;
 const float floorY = -0.8f;
+
+// editable from the "Character" panel
+struct CharTransform {
+	glm::vec3 position = glm::vec3(0.0f, floorY, 0.0f);
+	glm::vec3 rotation = glm::vec3(0.0f);	// degrees, XYZ
+	float scale = 1.0f;
+};
+CharTransform charTransform;
+
 glm::mat4 getCharacterModelMatrix() {
 	glm::mat4 model = glm::mat4(1.0f);
-	model = glm::translate(model, glm::vec3(0.0f, floorY, 0.0f));
-	model = glm::scale(model, glm::vec3(charModelScale));
+	model = glm::translate(model, charTransform.position);
+	model = glm::rotate(model, glm::radians(charTransform.rotation.x), glm::vec3(1, 0, 0));
+	model = glm::rotate(model, glm::radians(charTransform.rotation.y), glm::vec3(0, 1, 0));
+	model = glm::rotate(model, glm::radians(charTransform.rotation.z), glm::vec3(0, 0, 1));
+	model = glm::scale(model, glm::vec3(charTransform.scale));
 	return model;
 }
 
@@ -333,8 +242,7 @@ int main()
 #ifdef __APPLE__
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
-	// no GLFW_SAMPLES hint: the scene is antialiased in our own MSAA FBO, and the
-	// default framebuffer only receives a fullscreen quad + the UI
+	glfwWindowHint(GLFW_SAMPLES, 4);
 
 	// make & setup window
 	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "demo", NULL, NULL);
@@ -368,17 +276,23 @@ int main()
 
 	// ImGui
 	gui::init(window);
-	ImGui::GetIO().FontGlobalScale = 1.0f;
 	ImGuiStyle& style = ImGui::GetStyle();
 	style.WindowPadding = ImVec2(6, 6);
 	style.ItemSpacing = ImVec2(6, 3);
 	style.FramePadding = ImVec2(4, 2);
 
-	// fps display
+	// fps display / stats
 	float fpsTimer = 0.0f;
 	int fpsFrames = 0;
 	float displayedFPS = 0.0f;
 	float displayedMs = 0.0f;
+	float minFPS = 0.0f;
+	float minFPSWindow = 1e9f;
+	const int FPS_HISTORY = 90;
+	float fpsHistory[FPS_HISTORY] = {};
+	int fpsOffset = 0;
+	float avgFPSAccum = 0.0f;
+	int avgFPSCount = 0;
 
 	// shaders
 	Shader shader("resources/shaders/light.vs.glsl", "resources/shaders/light.fs.glsl");
@@ -386,10 +300,6 @@ int main()
 
 	Shader depthShader("resources/shaders/depth.vs.glsl", "resources/shaders/depth.fs.glsl");
 	Shader debugDepthQuadShader("resources/shaders/debug_depth_quad.vs.glsl", "resources/shaders/debug_depth_quad.fs.glsl");
-
-	// bloom
-	Shader blurShader("resources/shaders/bloom_quad.vs.glsl", "resources/shaders/bloom_blur.fs.glsl");
-	Shader bloomFinalShader("resources/shaders/bloom_quad.vs.glsl", "resources/shaders/bloom_final.fs.glsl");
 
 	Model charModel("resources/objects/2B/2B-1.glb");
 	//Model charModel("resources/objects/ijichi-nijika/1.fbx");
@@ -399,53 +309,35 @@ int main()
 	ShadowMap shadowMap;
 	Material material;
 	Outline outline;
+	ColorRamp ramp;
+	RimLight rim;
 
-	// bloom settings
-	bool bloomEnabled = true;
-	float bloomThreshold = 0.8f;
-	float bloomIntensity = 0.6f;
-	int bloomPasses = 5;
+	// ui-only state
+	bool vsync = false;
+	glm::vec3 clearColor(0.10f, 0.10f, 0.10f);
+	CharTransform pendingTransform;		// edited in the panel, applied with "Apply transform"
+	float cameraSpeed = camera.MovementSpeed;
+	// not wired to the renderer yet (placeholders for the next features)
+	bool postProcessing = false, bloom = false;
+	float bloomAmount = 0.5f, ppIntensity = 1.0f;
 
 	lastFrameTime = static_cast<float>(glfwGetTime());	// avoid first huge deltaTime
 
 	unsigned int floorTexture = loadTexture("resources/textures/concrete/Concrete047A_1K-JPG_Color.jpg");
 	configureDepthMapFBO();
 
-	// size buffers to the real framebuffer (differs from window size on hi-dpi displays)
-	int fbW, fbH;
-	glfwGetFramebufferSize(window, &fbW, &fbH);
-	SCR_WIDTH = fbW;
-	SCR_HEIGHT = fbH;
-	configureBloomBuffers(SCR_WIDTH, SCR_HEIGHT);
-
 	shader.use();
-	shader.setInt("diffuseTexture", 0);
+	shader.setInt("texture_diffuse1", 0);
 	shader.setInt("shadowMap", 1);
 
 	// for depth (shadow) map debugging
 	debugDepthQuadShader.use();
 	debugDepthQuadShader.setInt("depthMap", 0);
 
-	blurShader.use();
-	blurShader.setInt("image", 0);
-
-	bloomFinalShader.use();
-	bloomFinalShader.setInt("scene", 0);
-	bloomFinalShader.setInt("bloomBlur", 1);
-
-	const unsigned int sceneDrawBuffers[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
-
 	// render stuff
 	// ------------------------------------------------------------------------
 	while (!glfwWindowShouldClose(window))
 	{
-		// minimized: nothing to draw
-		if (SCR_WIDTH == 0 || SCR_HEIGHT == 0)
-		{
-			glfwPollEvents();
-			continue;
-		}
-
 		float currentFrameTime = static_cast<float>(glfwGetTime());
 		deltaTime = currentFrameTime - lastFrameTime;
 		lastFrameTime = currentFrameTime;
@@ -456,84 +348,192 @@ int main()
 		{
 			displayedMs = (fpsTimer / fpsFrames) * 1000.0f;
 			displayedFPS = fpsFrames / fpsTimer;
+			minFPS = minFPSWindow;
+			minFPSWindow = 1e9f;
+			fpsHistory[fpsOffset] = displayedFPS;
+			fpsOffset = (fpsOffset + 1) % FPS_HISTORY;
+			avgFPSAccum += displayedFPS;
+			++avgFPSCount;
 			fpsTimer = 0.0f;
 			fpsFrames = 0;
 		}
+		if (deltaTime > 0.0f)
+			minFPSWindow = std::min(minFPSWindow, 1.0f / deltaTime);
 
 		input.processInput(window);
 
 		// ui (built first, so edits apply to this frame)
-		float sliderWidth = 150.0f;
 		gui::setMouseEnabled(!input.mouseLook);
+		// scale the gui with the window (limiting side wins, so panels never outgrow the window)
+		float guiScale = std::min(SCR_WIDTH / GUI_BASE_WIDTH, SCR_HEIGHT / GUI_BASE_HEIGHT);
+		gui::setScale(std::clamp(guiScale, 0.6f, 3.0f));
 		gui::beginFrame();
-		ImGui::SetNextWindowBgAlpha(0.75f);
+		const float W = 150.0f * gui::scale();
 
-		ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_NoNav | ImGuiWindowFlags_AlwaysAutoResize);
-		ImGui::Text("%.1f FPS (%.2f ms)", displayedFPS, displayedMs);
+		// ---- left column ----
+		gui::PanelStack left = gui::leftColumn();
 
-		ImGui::Separator();
-		// ligthing
-		ImGui::Checkbox("lighting", &input.lighting);
-		ImGui::Checkbox("cell shading", &input.cellShading);
-		ImGui::Checkbox("rim lighting", &input.rimLighting);
-		ImGui::PushItemWidth(sliderWidth);
-		ImGui::Checkbox("move light", &input.lightMovement);
-		ImGui::SliderFloat("x##light", &dirLight.direction.x, -2.0f, 2.0f);
-		ImGui::SliderFloat("y##light", &dirLight.direction.y, -2.0f, 2.0f);
-		ImGui::SliderFloat("z##light", &dirLight.direction.z, -2.0f, 2.0f);
+		if (gui::beginPanel(left, "Performance"))
+		{
+			ImGui::Text("Average FPS: %.1f", avgFPSCount ? avgFPSAccum / avgFPSCount : 0.0f);
+			ImGui::Text("Minimum FPS: %.1f", minFPS);
+			ImGui::Text("Frame time:  %.2f ms", displayedMs);
+			gui::fpsGraph(fpsHistory, FPS_HISTORY, fpsOffset);
+			if (ImGui::Checkbox("Vsync", &vsync))
+			{
+				glfwSwapInterval(vsync ? 1 : 0);
+				// restart the stats so the average/min reflect the new mode
+				avgFPSAccum = 0.0f; avgFPSCount = 0;
+				minFPS = 0.0f; minFPSWindow = 1e9f;
+				fpsTimer = 0.0f; fpsFrames = 0;		// drop the half-finished window (mixes old and new mode)
+				displayedFPS = 0.0f; displayedMs = 0.0f;
+				std::fill(std::begin(fpsHistory), std::end(fpsHistory), 0.0f);
+			}
+		}
+		gui::endPanel(left);
 
-		ImGui::Separator();
+		if (gui::beginPanel(left, "Character properties"))
+		{
+			gui::sectionLabel("Transform");
+			ImGui::PushItemWidth(W);
+			ImGui::DragFloat3("Position", &pendingTransform.position.x, 0.01f);
+			ImGui::DragFloat3("Rotation", &pendingTransform.rotation.x, 0.5f);
+			ImGui::DragFloat("Scale", &pendingTransform.scale, 0.01f, 0.01f, 10.0f);
+			ImGui::PopItemWidth();
+			if (ImGui::Button("Apply transform"))
+				charTransform = pendingTransform;
+			ImGui::SameLine();
+			if (ImGui::Button("Reset"))
+			{
+				charTransform = CharTransform();
+				pendingTransform = charTransform;
+			}
+		}
+		gui::endPanel(left);
 
-		ImGui::Text("light intensity");
-		ImGui::SliderFloat("ambient", &dirLight.ambientIntensity, 0.0f, 2.0f);
-		ImGui::SliderFloat("diffuse", &dirLight.diffuseIntensity, 0.0f, 2.0f);
-		// disbled when cell shading
-		// --------------------------------------------------------------------
-		ImGui::BeginDisabled(input.cellShading);
-		ImGui::SliderFloat("specular", &dirLight.specularIntensity, 0.0f, 2.0f);
-		ImGui::PopItemWidth();
+		if (gui::beginPanel(left, "Render passes"))
+		{
+			ImGui::Checkbox("Toon shading", &input.cellShading);
+			ImGui::Checkbox("Outlines", &input.outline);
+			ImGui::Checkbox("Shadow mapping", &input.shadowMapping);
+			ImGui::Checkbox("Rim lighting", &input.rimLighting);
+			ImGui::Checkbox("Post-processing", &postProcessing);			// placeholder
+			ImGui::PushItemWidth(W);
+			if (ImGui::SliderFloat("Camera speed", &cameraSpeed, 0.5f, 10.0f))
+				camera.MovementSpeed = cameraSpeed;
+			ImGui::PopItemWidth();
+			ImGui::ColorEdit3("Background color", &clearColor.x, ImGuiColorEditFlags_NoInputs);
+			if (ImGui::Button("Reset all"))
+			{
+				dirLight = DirLight(); shadowMap = ShadowMap(); material = Material();
+				outline = Outline(); ramp = ColorRamp(); rim = RimLight();
+				input.lighting = true; input.cellShading = true; input.outline = true;
+				input.shadowMapping = true; input.rimLighting = true;
+			}
+		}
+		gui::endPanel(left);
 
-		ImGui::Separator();
-		// shininess
-		ImGui::Text("material shininess");
-		ImGui::PushItemWidth(sliderWidth);
-		ImGui::SliderFloat("##material", &material.shininess, 1.0f, 128.0f);
-		ImGui::PopItemWidth();
-		ImGui::EndDisabled();
-		// --------------------------------------------------------------------
+		if (postProcessing && gui::beginPanel(left, "Post-processing (not implemented)"))
+		{
+			ImGui::Checkbox("Bloom", &bloom);
+			ImGui::PushItemWidth(W);
+			ImGui::SliderFloat("Intensity", &ppIntensity, 0.0f, 2.0f);
+			ImGui::SliderFloat("Bloom amount", &bloomAmount, 0.0f, 1.0f);
+			ImGui::PopItemWidth();
+		}
+		if (postProcessing) gui::endPanel(left);
 
-		ImGui::Separator();
-		// outline
-		ImGui::Checkbox("outline", &input.outline);
-		ImGui::PushItemWidth(sliderWidth);
-		ImGui::SliderFloat("width", &outline.width, 0.0f, 0.01f, "%.4f");
-		ImGui::SliderFloat("depth bias", &outline.depthBias, 0.0f, 0.05f, "%.4f");
-		ImGui::PopItemWidth();
+		// ---- right column ----
+		gui::PanelStack right = gui::rightColumn();
 
-		ImGui::Separator();
-		// shadow
-		ImGui::Checkbox("shadow", &input.shadowMapping);
-		ImGui::Text("direction");
-		ImGui::PushItemWidth(sliderWidth);
-		ImGui::SliderFloat("x##shadow", &shadowMap.lightDir.x, -1.0f, 1.0f);
-		ImGui::SliderFloat("y (steepness)##shadow", &shadowMap.lightDir.y, -2.0f, 0.0f);
-		ImGui::SliderFloat("z##shadow", &shadowMap.lightDir.z, -1.0f, 1.0f);
-		ImGui::PopItemWidth();
+		if (gui::beginPanel(right, "Shading"))
+		{
+			ImGui::Checkbox("Lighting", &input.lighting);
+			ImGui::Checkbox("Toon shading##shading", &input.cellShading);
+			ImGui::PushItemWidth(W);
+			ImGui::SliderInt("Toon levels", &ramp.levels, 2, 8);
+			ImGui::SliderFloat("Softness", &ramp.softness, 0.0f, 0.2f, "%.3f");
+			ImGui::PopItemWidth();
 
-		ImGui::Separator();
-		// bloom
-		ImGui::Checkbox("bloom", &bloomEnabled);
-		ImGui::PushItemWidth(sliderWidth);
-		ImGui::SliderFloat("threshold", &bloomThreshold, 0.0f, 1.0f);
-		ImGui::SliderFloat("intensity", &bloomIntensity, 0.0f, 2.0f);
-		ImGui::SliderInt("blur passes", &bloomPasses, 1, 10);
-		ImGui::PopItemWidth();
+			gui::sectionLabel("Color ramp");
+			gui::rampStrip(ramp.shadow, ramp.mid, ramp.light, ramp.levels);
+			gui::colorRow("Shadow", ramp.shadow);
+			gui::colorRow("Mid", ramp.mid);
+			gui::colorRow("Light", ramp.light);
+			if (ImGui::Button("Reset##ramp"))
+			{
+				int lv = ramp.levels;
+				ramp = ColorRamp();
+				ramp.levels = lv;
+			}
+		}
+		gui::endPanel(right);
 
-		ImGui::Separator();
-		// background color
-		ImGui::Checkbox("toggle background color", &input.toggleBackground);
+		if (gui::beginPanel(right, "Outlines"))
+		{
+			ImGui::Checkbox("Enable##outline", &input.outline);
+			ImGui::PushItemWidth(W);
+			ImGui::SliderFloat("Width", &outline.width, 0.0f, 0.01f, "%.4f");
+			ImGui::SliderFloat("Depth bias", &outline.depthBias, 0.0f, 0.05f, "%.4f");
+			ImGui::PopItemWidth();
+			gui::colorRow("Color", outline.color);
+		}
+		gui::endPanel(right);
 
-		ImGui::End();
+		if (gui::beginPanel(right, "Lighting"))
+		{
+			if (ImGui::BeginTabBar("lighting_tabs"))
+			{
+				if (ImGui::BeginTabItem("Directional"))
+				{
+					ImGui::Checkbox("Shadow##dir", &input.shadowMapping);
+					ImGui::Checkbox("Move light", &input.lightMovement);
+					ImGui::PushItemWidth(W);
+					ImGui::SliderFloat("x##light", &dirLight.direction.x, -2.0f, 2.0f);
+					ImGui::SliderFloat("y##light", &dirLight.direction.y, -2.0f, 2.0f);
+					ImGui::SliderFloat("z##light", &dirLight.direction.z, -2.0f, 2.0f);
+					ImGui::BeginDisabled(input.cellShading);
+					ImGui::SliderFloat("Specular", &dirLight.specularIntensity, 0.0f, 2.0f);
+					ImGui::SliderFloat("Shininess", &material.shininess, 1.0f, 128.0f);
+					ImGui::EndDisabled();
+					gui::sectionLabel("Shadow direction");
+					ImGui::SliderFloat("x##shadow", &shadowMap.lightDir.x, -1.0f, 1.0f);
+					ImGui::SliderFloat("y (steepness)##shadow", &shadowMap.lightDir.y, -2.0f, 0.0f);
+					ImGui::SliderFloat("z##shadow", &shadowMap.lightDir.z, -1.0f, 1.0f);
+					ImGui::PopItemWidth();
+					ImGui::EndTabItem();
+				}
+				if (ImGui::BeginTabItem("Intensity"))
+				{
+					ImGui::PushItemWidth(W);
+					ImGui::SliderFloat("Ambient", &dirLight.ambientIntensity, 0.0f, 2.0f);
+					ImGui::SliderFloat("Diffuse", &dirLight.diffuseIntensity, 0.0f, 2.0f);
+					ImGui::PopItemWidth();
+					ImGui::EndTabItem();
+				}
+				ImGui::EndTabBar();
+			}
+		}
+		gui::endPanel(right);
+
+		if (gui::beginPanel(right, "Rim light"))
+		{
+			ImGui::Checkbox("Enable##rim", &input.rimLighting);
+			ImGui::PushItemWidth(W);
+			ImGui::SliderFloat("Intensity##rim", &rim.intensity, 0.0f, 1.0f);
+			ImGui::SliderFloat("Power", &rim.power, 0.5f, 8.0f);
+			ImGui::PopItemWidth();
+			gui::colorRow("Rim color", rim.color);
+		}
+		gui::endPanel(right);
+
+		gui::controlsBar();
+
+		// background
+		glClearColor(clearColor.r, clearColor.g, clearColor.b, 1.0f);
+
+		// clear buffers for every frame
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// render depth of scene to texture (from light's POV) in orthographic view
 		float lightNearPlane = 1.0f, lightFarPlane = 20.0f;
@@ -550,18 +550,9 @@ int main()
 		depthShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
 		renderDepthMap(depthShader, charModel);
 
-		// scene is rendered into the multisampled HDR target (2 color outputs)
-		// ----------------------------------------------------------------
-		glBindFramebuffer(GL_FRAMEBUFFER, msaaFBO);
+		// reset viewport
 		glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
-		glDrawBuffers(2, sceneDrawBuffers);
-
-		const float bg = input.toggleBackground ? 0.10f : 0.90f;
-		const float bgColor[4] = { bg, bg, bg, 1.0f };		// background
-		const float black[4] = { 0.0f, 0.0f, 0.0f, 1.0f };	// bright buffer must start black
-		glClearBufferfv(GL_COLOR, 0, bgColor);
-		glClearBufferfv(GL_COLOR, 1, black);
-		glClear(GL_DEPTH_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// view/projection transformations
 		float aspect = (SCR_HEIGHT > 0) ? (float)SCR_WIDTH / (float)SCR_HEIGHT : 1.0f;
@@ -579,17 +570,16 @@ int main()
 		shader_config::applyLightingToggles(shader, input.lighting, input.cellShading, input.rimLighting, input.shadowMapping);
 		shader_config::applyMaterial(shader, material);
 		shader_config::applyDirLight(shader, dirLight, colors::whiteLight);
+		shader_config::applyColorRamp(shader, ramp);
+		shader_config::applyRimLight(shader, rim);
 		shader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
-		shader.setFloat("bloomThreshold", bloomThreshold);
 		shader.setBool("gReceiveShadowMapping", false);
 		shader.setBool("gReceiveRimLighting", true);
-		shader.setBool("gReceiveBloom", true);
 		drawCharacter(shader, charModel, getCharacterModelMatrix());
 
-		// floor (doesn't glow)
+		// floor
 		shader.setBool("gReceiveShadowMapping", true);
 		shader.setBool("gReceiveRimLighting", false);
-		shader.setBool("gReceiveBloom", false);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, floorTexture);
 		glActiveTexture(GL_TEXTURE1);
@@ -597,41 +587,18 @@ int main()
 		glActiveTexture(GL_TEXTURE0);
 		drawFloor(shader);
 
-		// outline (its shader only writes one output, so only draw to attachment 0)
+		// outline
 		if (input.outline)
 		{
-			glDrawBuffer(GL_COLOR_ATTACHMENT0);
 			glCullFace(GL_FRONT);
 
-			glm::vec3 outlineColor = input.toggleBackground ? colors::whiteOutline : colors::blackOutline;
-
 			outlineShader.use();
-			shader_config::applyOutline(outlineShader, outline, outlineColor, projection, view);
+			shader_config::applyOutline(outlineShader, outline, projection, view);
 			outlineShader.setFloat("aspect", aspect);
 			drawOutline(outlineShader, charModel, getCharacterModelMatrix());
 
 			glCullFace(GL_BACK);
-			glDrawBuffers(2, sceneDrawBuffers);
 		}
-
-		// post-processing: resolve MSAA -> blur bright regions -> composite to screen
-		// --------------------------------------------------------------------
-		glDisable(GL_DEPTH_TEST);
-		resolveSceneBuffers(SCR_WIDTH, SCR_HEIGHT);
-		unsigned int bloomTex = bloomEnabled ? blurBrightness(blurShader, bloomPasses) : hdrColor[1];
-
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
-		bloomFinalShader.use();
-		bloomFinalShader.setBool("bloomEnabled", bloomEnabled);
-		bloomFinalShader.setFloat("bloomIntensity", bloomIntensity);
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, hdrColor[0]);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, bloomTex);
-		glActiveTexture(GL_TEXTURE0);
-		renderQuad();
-		glEnable(GL_DEPTH_TEST);
 
 		// render depth map to quad for visual shadow debugging
 		//debugDepthQuadShader.use();
@@ -653,7 +620,7 @@ int main()
 			//shadowMap.lightDir.z = std::cos(currentFrameTime * speed);
 		}
 
-		// ui is drawn last, straight to the default framebuffer, so it isn't blurred or bloomed
+		// ui is drawn last so it sits on top of the scene
 		gui::endFrame();
 
 		glfwSwapBuffers(window);
@@ -662,7 +629,6 @@ int main()
 
 	gui::shutdown();
 
-	destroyBloomBuffers();
 	glDeleteVertexArrays(1, &planeVAO);
 	glDeleteBuffers(1, &planeVBO);
 	glDeleteBuffers(1, &planeEBO);

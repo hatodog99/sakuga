@@ -23,7 +23,7 @@ namespace shader_config
         shader.setFloat("material.shininess", material.shininess);
     }
 
-    void applyDirLight(Shader& shader, const DirLight& dirLight, glm::vec3& color)
+    void applyDirLight(Shader& shader, const DirLight& dirLight, const glm::vec3& color)
     {
         shader.setVec3("dirLight.direction", dirLight.direction);
         shader.setVec3("dirLight.ambient", dirLight.ambient * dirLight.ambientIntensity);
@@ -32,12 +32,29 @@ namespace shader_config
         shader.setVec3("dirLight.color", color);
     }
 
-    void applyOutline(Shader& shader, Outline& outline, glm::vec3& color, const glm::mat4& projection, const glm::mat4& view)
+    void applyOutline(Shader& shader, const Outline& outline, const glm::mat4& projection, const glm::mat4& view)
     {
-        shader.setVec3("outlineColor", color);
+        shader.setVec3("outlineColor", outline.color);
         shader.setFloat("outlineWidth", outline.width);
         shader.setFloat("depthBias", outline.depthBias);
         shader.setMat4("projection", projection);
         shader.setMat4("view", view);
+    }
+
+    void applyColorRamp(Shader& shader, const ColorRamp& ramp)
+    {
+        shader.setVec3("ramp.shadow", ramp.shadow);
+        shader.setVec3("ramp.mid", ramp.mid);
+        shader.setVec3("ramp.light", ramp.light);
+        shader.setInt("ramp.levels", ramp.levels);
+        shader.setFloat("ramp.softness", ramp.softness);
+    }
+
+    void applyRimLight(Shader& shader, const RimLight& rim)
+    {
+        shader.setFloat("rimIntensity", rim.intensity);
+        shader.setVec3("rimColor", rim.color);
+        shader.setFloat("rimPower", rim.power);
+        shader.setVec2("rimDirection", rim.direction);
     }
 }
