@@ -45,7 +45,7 @@ namespace gui
     void sectionLabel(const char* text);                        // small heading
     bool colorRow(const char* label, glm::vec3& color);         // R G B (0-255) fields + swatch/picker
     void rampStrip(const glm::vec3& shadow, const glm::vec3& mid, const glm::vec3& light,
-        int levels);                                 // preview of the toon color bands
+                   int levels);                                 // preview of the toon color bands
     void fpsGraph(const float* values, int count, int offset);  // small line graph (ring buffer)
     void controlsBar();                                         // key hints along the bottom
 }
