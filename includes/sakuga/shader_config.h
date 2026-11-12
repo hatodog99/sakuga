@@ -41,8 +41,8 @@ struct ShadowMap
 
 struct Outline
 {
-    float width = 0.0045f;	// world units: outline.vs.glsl extrudes along the normal in world space
-    float depthBias = 0.007f;
+    float width = 0.0033f;	// world units: outline.vs.glsl extrudes along the normal in world space
+    float depthBias = 0.0105f;
     glm::vec3 color = glm::vec3(0.0f);   // #14142B
 };
 
