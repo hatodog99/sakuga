@@ -448,6 +448,7 @@ int main()
 
 		if (gui::beginPanel(left, "Render passes"))
 		{
+			ImGui::Checkbox("Lighting", &input.lighting);
 			ImGui::Checkbox("Toon shading", &input.cellShading);
 			ImGui::Checkbox("Outlines", &input.outline);
 			ImGui::Checkbox("Shadow mapping", &input.shadowMapping);
