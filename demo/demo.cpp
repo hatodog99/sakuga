@@ -1,5 +1,4 @@
 // TODO: 
-// color ramps
 // post-processing: bloom
 // api integration
 // 
@@ -50,10 +49,14 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 	glViewport(0, 0, width, height);
 }
 
+// ---- resource management ---------------------------------------------------
+// every create has a matching release. releases zero the ids, so calling them twice is safe,
+// and they must run while the GL context still exists (before glfwTerminate).
+
 // renderQuad() renders a 1x1 XY quad in NDC
 // -----------------------------------------
 unsigned int quadVAO = 0;
-unsigned int quadVBO;
+unsigned int quadVBO = 0;
 void renderQuad()
 {
 	if (quadVAO == 0)	// initalize if necessary
@@ -83,10 +86,16 @@ void renderQuad()
 	glBindVertexArray(0);
 }
 
+void releaseQuad()
+{
+	if (quadVAO) { glDeleteVertexArrays(1, &quadVAO); quadVAO = 0; }
+	if (quadVBO) { glDeleteBuffers(1, &quadVBO); quadVBO = 0; }
+}
+
 // render 1x1 plane in normalized device coords
 unsigned int planeVAO = 0;
-unsigned int planeVBO;
-unsigned int planeEBO;
+unsigned int planeVBO = 0;
+unsigned int planeEBO = 0;
 void renderPlane() {
 	if (planeVAO == 0) {	// initalize if necessary
 
@@ -131,6 +140,13 @@ void renderPlane() {
 	glBindVertexArray(0);
 }
 
+void releasePlane()
+{
+	if (planeVAO) { glDeleteVertexArrays(1, &planeVAO); planeVAO = 0; }
+	if (planeVBO) { glDeleteBuffers(1, &planeVBO); planeVBO = 0; }
+	if (planeEBO) { glDeleteBuffers(1, &planeEBO); planeEBO = 0; }
+}
+
 void drawFloor(Shader& shader) {
 	glm::mat4 model = glm::mat4(1.0f);
 	model = glm::translate(model, glm::vec3(0.0f, -0.8f, 0.0f));
@@ -148,6 +164,18 @@ void drawCharacter(Shader& shader, Model& charModel, const glm::mat4& model) {
 void drawOutline(Shader& shader, Model& charModel, const glm::mat4& model) {
 	shader.setMat4("model", model);
 	charModel.Draw(shader);
+}
+
+// frees the GL objects the model owns that are reachable from outside the class: its textures
+// and mesh VAOs. Mesh keeps its VBO/EBO private, so those need Mesh::release() (see notes).
+void releaseModel(Model& model)
+{
+	for (Texture& t : model.textures_loaded)
+		if (t.id) glDeleteTextures(1, &t.id);
+	model.textures_loaded.clear();
+
+	for (Mesh& m : model.meshes)
+		if (m.VAO) { glDeleteVertexArrays(1, &m.VAO); m.VAO = 0; }
 }
 
 const float floorY = -0.8f;
@@ -170,8 +198,8 @@ glm::mat4 getCharacterModelMatrix() {
 	return model;
 }
 
-unsigned int depthMapFBO;
-unsigned int depthMap;
+unsigned int depthMapFBO = 0;
+unsigned int depthMap = 0;
 const unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
 void configureDepthMapFBO() {
 	glGenFramebuffers(1, &depthMapFBO);
@@ -195,6 +223,12 @@ void configureDepthMapFBO() {
 	glDrawBuffer(GL_NONE);
 	glReadBuffer(GL_NONE);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void releaseDepthMap()
+{
+	if (depthMapFBO) { glDeleteFramebuffers(1, &depthMapFBO); depthMapFBO = 0; }
+	if (depthMap) { glDeleteTextures(1, &depthMap); depthMap = 0; }
 }
 
 void renderDepthMap(Shader& shader, Model& charModel) {
@@ -264,6 +298,7 @@ int main()
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
 	{
 		std::cout << "failed to initialize glad" << std::endl;
+		glfwTerminate();
 		return -1;
 	}
 
@@ -627,12 +662,22 @@ int main()
 		glfwPollEvents();
 	}
 
+	// cleanup: release every GL resource while the context still exists
+	// ------------------------------------------------------------------------
 	gui::shutdown();
 
-	glDeleteVertexArrays(1, &planeVAO);
-	glDeleteBuffers(1, &planeVBO);
-	glDeleteBuffers(1, &planeEBO);
+	releaseModel(charModel);
+	glDeleteTextures(1, &floorTexture);
+	releaseDepthMap();
+	releasePlane();
+	releaseQuad();
 
+	glDeleteProgram(shader.ID);
+	glDeleteProgram(outlineShader.ID);
+	glDeleteProgram(depthShader.ID);
+	glDeleteProgram(debugDepthQuadShader.ID);
+
+	glfwDestroyWindow(window);
 	glfwTerminate();
 	return 0;
 }
