@@ -43,17 +43,21 @@ struct Outline
 {
     float width = 0.0033f;	// world units: outline.vs.glsl extrudes along the normal in world space
     float depthBias = 0.0105f;
-    glm::vec3 color = glm::vec3(0.0f);   // #14142B
+    glm::vec3 color = glm::vec3(0.0f);   // #000000
 };
 
-// toon color ramp: `levels` flat bands going shadow -> midtone -> highlight
+// toon color ramp: `levels` flat bands going shadow -> midtone -> highlight.
+// lowT / highT are N.L values: the first band edge sits at lowT, the last at highT,
+// and any edges in between are spread evenly. At 3 levels: lowT = shadow->mid, highT = mid->light.
 struct ColorRamp
 {
     glm::vec3 shadow = glm::vec3(0.55f);   // #8C8C8C
-    glm::vec3 mid = glm::vec3(0.78f);   // #C7C7C7
-    glm::vec3 light = glm::vec3(1.00f);   // #FFFFFF
+    glm::vec3 mid = glm::vec3(0.78f);      // #C7C7C7
+    glm::vec3 light = glm::vec3(1.00f);    // #FFFFFF
     int levels = 3;            // 2-8 bands
     float softness = 0.02f;    // 0 = hard anime edge
+    float lowT = 0.33f;       // N.L where shadow -> next band (first edge)
+    float highT = 0.66f;       // N.L where the last band begins (last edge)
 };
 
 struct RimLight

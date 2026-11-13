@@ -525,10 +525,13 @@ int main()
 			ImGui::PushItemWidth(W);
 			ImGui::SliderInt("Toon levels", &ramp.levels, 2, 8);
 			ImGui::SliderFloat("Softness", &ramp.softness, 0.0f, 0.2f, "%.3f");
+			ImGui::SliderFloat("Low threshold", &ramp.lowT, 0.0f, 1.0f);
+			ImGui::SliderFloat("High threshold", &ramp.highT, 0.0f, 1.0f);
+			ramp.lowT = std::min(ramp.lowT, ramp.highT);	// keep low <= high
 			ImGui::PopItemWidth();
 
 			gui::sectionLabel("Color ramp");
-			gui::rampStrip(ramp.shadow, ramp.mid, ramp.light, ramp.levels);
+			gui::rampStrip(ramp.shadow, ramp.mid, ramp.light, ramp.levels, ramp.softness, ramp.lowT, ramp.highT);
 			gui::colorRow("Shadow", ramp.shadow);
 			gui::colorRow("Mid", ramp.mid);
 			gui::colorRow("Light", ramp.light);

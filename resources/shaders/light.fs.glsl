@@ -28,6 +28,8 @@ struct ColorRamp {
     vec3 light;
     int levels;         // number of flat bands (2-8)
     float softness;     // 0 = hard edge
+    float lowT;         // N.L of the first band edge (shadow -> next)
+    float highT;        // N.L of the last band edge (-> highlight)
 };
 
 // ----------------------------------------------------------------------------
@@ -88,16 +90,18 @@ void CalcDirLight(DirLight light, vec3 normal, vec3 viewDir,
 }
 
 // splits N.L into `levels` flat bands and picks the ramp color for each:
-// first band = shadow, middle = midtone, last = highlight
+// first band = shadow, middle = midtone, last = highlight.
+// band edges are spread evenly from lowT to highT.
 vec3 RampColor(float ndl)
 {
     int n = clamp(ramp.levels, 2, 8);
     float s = max(ramp.softness, 0.0001);
 
     float t = 0.0;
-    for (int i = 1; i < n; ++i)
+    for (int i = 0; i < n - 1; ++i)
     {
-        float edge = float(i) / float(n);
+        float k = (n > 2) ? float(i) / float(n - 2) : 0.5;
+        float edge = mix(ramp.lowT, ramp.highT, k);
         t += smoothstep(edge - s, edge + s, ndl);
     }
     t /= float(n - 1);

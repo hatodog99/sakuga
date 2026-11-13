@@ -208,21 +208,35 @@ namespace gui
         return changed;
     }
 
-    void rampStrip(const glm::vec3& shadow, const glm::vec3& mid, const glm::vec3& light, int levels)
+    void rampStrip(const glm::vec3& shadow, const glm::vec3& mid, const glm::vec3& light,
+        int levels, float softness, float lowT, float highT)
     {
-        const float h = 20.0f * gScale;
-        if (levels < 2) levels = 2;
+        const float h = 20.0f * scale();    // drop "* scale()" if your gui.cpp has no scale helper
+        int n = levels < 2 ? 2 : (levels > 8 ? 8 : levels);
+        float s = softness > 0.0001f ? softness : 0.0001f;
 
         float w = ImGui::GetContentRegionAvail().x;
         ImVec2 p = ImGui::GetCursorScreenPos();
         ImDrawList* dl = ImGui::GetWindowDrawList();
 
-        for (int i = 0; i < levels; ++i)
+        // one column per pixel, same math as RampColor() in light.fs.glsl
+        int cols = (int)w;
+        for (int c = 0; c < cols; ++c)
         {
-            float t = (float)i / (float)(levels - 1);
-            float x0 = p.x + w * (float)i / (float)levels;
-            float x1 = p.x + w * (float)(i + 1) / (float)levels;
-            dl->AddRectFilled(ImVec2(x0, p.y), ImVec2(x1, p.y + h), toU32(bandColor(shadow, mid, light, t)));
+            float ndl = (c + 0.5f) / (float)cols;
+
+            float t = 0.0f;
+            for (int i = 0; i < n - 1; ++i)
+            {
+                float k = (n > 2) ? (float)i / (float)(n - 2) : 0.5f;
+                float edge = lowT + (highT - lowT) * k;
+                float x = glm::clamp((ndl - (edge - s)) / (2.0f * s), 0.0f, 1.0f);
+                t += x * x * (3.0f - 2.0f * x);    // smoothstep
+            }
+            t /= (float)(n - 1);
+
+            dl->AddRectFilled(ImVec2(p.x + c, p.y), ImVec2(p.x + c + 1.0f, p.y + h),
+                toU32(bandColor(shadow, mid, light, t)));
         }
         ImGui::Dummy(ImVec2(w, h));
     }
