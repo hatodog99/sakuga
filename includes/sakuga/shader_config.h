@@ -42,7 +42,7 @@ struct ShadowMap
 struct Outline
 {
     float width = 0.001f;	// world units: outline.vs.glsl extrudes along the normal in world space
-    float depthBias = 0.0013f;
+    float depthBias = 0.001f;
     glm::vec3 color = glm::vec3(0.0f);   // #000000
 };
 
@@ -56,7 +56,7 @@ struct ColorRamp
     glm::vec3 light = glm::vec3(1.00f);    // #FFFFFF
     int levels = 3;            // 2-8 bands
     float softness = 0.02f;    // 0 = hard anime edge
-    float lowT = 0.046f;         // N.L where shadow -> next band (first edge)
+    float lowT = 0.036f;        // N.L where shadow -> next band (first edge)
     float highT = 0.307f;       // N.L where the last band begins (last edge)
 };
 
