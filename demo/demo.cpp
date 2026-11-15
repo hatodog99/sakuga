@@ -398,6 +398,7 @@ int main()
 		input.processInput(window);
 
 		// ui (built first, so edits apply to this frame)
+		// --------------------------------------------------------------------
 		gui::setMouseEnabled(!input.mouseLook);
 		// scale the gui with the window (limiting side wins, so panels never outgrow the window)
 		float guiScale = std::min(SCR_WIDTH / GUI_BASE_WIDTH, SCR_HEIGHT / GUI_BASE_HEIGHT);
@@ -488,7 +489,6 @@ int main()
 			{
 				if (ImGui::BeginTabItem("Directional"))
 				{
-					ImGui::Checkbox("Shadow##dir", &input.shadowMapping);
 					ImGui::Checkbox("Move light", &input.lightMovement);
 					ImGui::PushItemWidth(W);
 					ImGui::SliderFloat("x##light", &dirLight.direction.x, -2.0f, 2.0f);
@@ -498,6 +498,8 @@ int main()
 					ImGui::SliderFloat("Specular", &dirLight.specularIntensity, 0.0f, 2.0f);
 					ImGui::SliderFloat("Shininess", &material.shininess, 1.0f, 128.0f);
 					ImGui::EndDisabled();
+					
+					ImGui::Checkbox("Shadow##dir", &input.shadowMapping);
 					gui::sectionLabel("Shadow direction");
 					ImGui::SliderFloat("x##shadow", &shadowMap.lightDir.x, -1.0f, 1.0f);
 					ImGui::SliderFloat("y (steepness)##shadow", &shadowMap.lightDir.y, -2.0f, 0.0f);
@@ -548,8 +550,8 @@ int main()
 		{
 			ImGui::Checkbox("Enable##outline", &input.outline);
 			ImGui::PushItemWidth(W);
-			ImGui::SliderFloat("Width", &outline.width, 0.0f, 0.01f, "%.4f");
-			ImGui::SliderFloat("Depth bias", &outline.depthBias, 0.0f, 0.05f, "%.4f");
+			ImGui::SliderFloat("Width", &outline.width, 0.0f, 0.003f, "%.4f");
+			ImGui::SliderFloat("Depth bias", &outline.depthBias, 0.0f, 0.003f, "%.4f");
 			ImGui::PopItemWidth();
 			gui::colorRow("Color", outline.color);
 		}
@@ -567,6 +569,7 @@ int main()
 		gui::endPanel(right);
 
 		gui::controlsBar();
+		// --------------------------------------------------------------------
 
 		// background
 		glClearColor(clearColor.r, clearColor.g, clearColor.b, 1.0f);
