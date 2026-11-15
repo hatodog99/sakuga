@@ -404,7 +404,7 @@ int main()
 		float guiScale = std::min(SCR_WIDTH / GUI_BASE_WIDTH, SCR_HEIGHT / GUI_BASE_HEIGHT);
 		gui::setScale(std::clamp(guiScale, 0.6f, 3.0f));
 		gui::beginFrame();
-		const float W = 150.0f * gui::scale();
+		const float guiItemWidth = 150.0f * gui::scale();
 
 		// ---- left column ----
 		gui::PanelStack left = gui::leftColumn();
@@ -431,7 +431,7 @@ int main()
 		if (gui::beginPanel(left, "Character properties"))
 		{
 			gui::sectionLabel("Transform");
-			ImGui::PushItemWidth(W);
+			ImGui::PushItemWidth(guiItemWidth);
 			ImGui::DragFloat3("Position", &pendingTransform.position.x, 0.01f);
 			ImGui::DragFloat3("Rotation", &pendingTransform.rotation.x, 0.5f);
 			ImGui::DragFloat("Scale", &pendingTransform.scale, 0.01f, 0.01f, 10.0f);
@@ -455,7 +455,7 @@ int main()
 			ImGui::Checkbox("Outlines", &input.outline);
 			ImGui::Checkbox("Rim lighting", &input.rimLighting);
 			ImGui::Checkbox("Post-processing", &postProcessing);			// placeholder
-			ImGui::PushItemWidth(W);
+			ImGui::PushItemWidth(guiItemWidth);
 			if (ImGui::SliderFloat("Camera speed", &cameraSpeed, 0.5f, 10.0f))
 				camera.MovementSpeed = cameraSpeed;
 			ImGui::PopItemWidth();
@@ -473,7 +473,7 @@ int main()
 		if (postProcessing && gui::beginPanel(left, "Post-processing (not implemented)"))
 		{
 			ImGui::Checkbox("Bloom", &bloom);
-			ImGui::PushItemWidth(W);
+			ImGui::PushItemWidth(guiItemWidth);
 			ImGui::SliderFloat("Intensity", &ppIntensity, 0.0f, 2.0f);
 			ImGui::SliderFloat("Bloom amount", &bloomAmount, 0.0f, 1.0f);
 			ImGui::PopItemWidth();
@@ -485,33 +485,28 @@ int main()
 
 		if (gui::beginPanel(right, "Lighting"))
 		{
+			ImGui::Checkbox("Enable##lighting", &input.lighting);
+
 			if (ImGui::BeginTabBar("lighting_tabs"))
 			{
-				if (ImGui::BeginTabItem("Directional"))
+				if (ImGui::BeginTabItem("Position"))
 				{
 					ImGui::Checkbox("Move light", &input.lightMovement);
-					ImGui::PushItemWidth(W);
+					ImGui::PushItemWidth(guiItemWidth);
 					ImGui::SliderFloat("x##light", &dirLight.direction.x, -2.0f, 2.0f);
 					ImGui::SliderFloat("y##light", &dirLight.direction.y, -2.0f, 2.0f);
 					ImGui::SliderFloat("z##light", &dirLight.direction.z, -2.0f, 2.0f);
 					ImGui::BeginDisabled(input.cellShading);
-					ImGui::SliderFloat("Specular", &dirLight.specularIntensity, 0.0f, 2.0f);
-					ImGui::SliderFloat("Shininess", &material.shininess, 1.0f, 128.0f);
 					ImGui::EndDisabled();
-					
-					ImGui::Checkbox("Shadow##dir", &input.shadowMapping);
-					gui::sectionLabel("Shadow direction");
-					ImGui::SliderFloat("x##shadow", &shadowMap.lightDir.x, -1.0f, 1.0f);
-					ImGui::SliderFloat("y (steepness)##shadow", &shadowMap.lightDir.y, -2.0f, 0.0f);
-					ImGui::SliderFloat("z##shadow", &shadowMap.lightDir.z, -1.0f, 1.0f);
-					ImGui::PopItemWidth();
 					ImGui::EndTabItem();
 				}
 				if (ImGui::BeginTabItem("Intensity"))
 				{
-					ImGui::PushItemWidth(W);
+					ImGui::PushItemWidth(guiItemWidth);
 					ImGui::SliderFloat("Ambient", &dirLight.ambientIntensity, 0.0f, 2.0f);
 					ImGui::SliderFloat("Diffuse", &dirLight.diffuseIntensity, 0.0f, 2.0f);
+					ImGui::SliderFloat("Specular", &dirLight.specularIntensity, 0.0f, 2.0f);
+					ImGui::SliderFloat("Shininess", &material.shininess, 1.0f, 128.0f);
 					ImGui::PopItemWidth();
 					ImGui::EndTabItem();
 				}
@@ -520,11 +515,22 @@ int main()
 		}
 		gui::endPanel(right);
 
-		if (gui::beginPanel(right, "Shading"))
+		if (gui::beginPanel(right, "Shadow mapping"))
 		{
-			ImGui::Checkbox("Lighting", &input.lighting);
-			ImGui::Checkbox("Toon shading##shading", &input.cellShading);
-			ImGui::PushItemWidth(W);
+			ImGui::PushItemWidth(guiItemWidth);
+			ImGui::Checkbox("Enable##dir", &input.shadowMapping);
+			gui::sectionLabel("Shadow direction");
+			ImGui::SliderFloat("x##shadow", &shadowMap.lightDir.x, -1.0f, 1.0f);
+			ImGui::SliderFloat("y (steepness)##shadow", &shadowMap.lightDir.y, -2.0f, 0.0f);
+			ImGui::SliderFloat("z##shadow", &shadowMap.lightDir.z, -1.0f, 1.0f);
+			ImGui::PopItemWidth();
+		}
+		gui::endPanel(right);
+
+		if (gui::beginPanel(right, "Toon shading"))
+		{
+			ImGui::Checkbox("Enable##shading", &input.cellShading);
+			ImGui::PushItemWidth(guiItemWidth);
 			ImGui::SliderInt("Toon levels", &ramp.levels, 2, 8);
 			ImGui::SliderFloat("Softness", &ramp.softness, 0.0f, 0.2f, "%.3f");
 			ImGui::SliderFloat("Low threshold", &ramp.lowT, 0.0f, 1.0f);
@@ -549,7 +555,7 @@ int main()
 		if (gui::beginPanel(right, "Outlines"))
 		{
 			ImGui::Checkbox("Enable##outline", &input.outline);
-			ImGui::PushItemWidth(W);
+			ImGui::PushItemWidth(guiItemWidth);
 			ImGui::SliderFloat("Width", &outline.width, 0.0f, 0.003f, "%.4f");
 			ImGui::SliderFloat("Depth bias", &outline.depthBias, 0.0f, 0.003f, "%.4f");
 			ImGui::PopItemWidth();
@@ -560,7 +566,7 @@ int main()
 		if (gui::beginPanel(right, "Rim light"))
 		{
 			ImGui::Checkbox("Enable##rim", &input.rimLighting);
-			ImGui::PushItemWidth(W);
+			ImGui::PushItemWidth(guiItemWidth);
 			ImGui::SliderFloat("Intensity##rim", &rim.intensity, 0.0f, 1.0f);
 			ImGui::SliderFloat("Power", &rim.power, 0.5f, 8.0f);
 			ImGui::PopItemWidth();
