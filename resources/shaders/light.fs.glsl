@@ -74,7 +74,7 @@ const float AMBIENT_REF = 0.6;
 // ----------------------------------------------------------------------------
 // lighting
 // ----------------------------------------------------------------------------
-void CalcDirLight(DirLight light, vec3 normal, vec3 viewDir,
+void DirLightCalc(DirLight light, vec3 normal, vec3 viewDir,
                   out vec3 ambient, out vec3 diffuse, out vec3 specular)
 {
     vec3 lightDir = normalize(-light.direction);
@@ -146,7 +146,7 @@ float ShadowCalc(vec4 fragPosLightSpace)
 // ----------------------------------------------------------------------------
 // rim light
 // ----------------------------------------------------------------------------
-vec3 CalcRim(vec3 normal, vec3 viewDir)
+vec3 RimCalc(vec3 normal, vec3 viewDir)
 {
     if (!gRimLightingEnabled || !gReceiveRimLighting)
         return vec3(0.0);
@@ -182,9 +182,9 @@ void main()
         vec3 lightDir = normalize(-dirLight.direction);
 
         vec3 ambient, diffuse, specular;
-        CalcDirLight(dirLight, norm, viewDir, ambient, diffuse, specular);
+        DirLightCalc(dirLight, norm, viewDir, ambient, diffuse, specular);
 
-        vec3 rim = CalcRim(norm, viewDir);
+        vec3 rim = RimCalc(norm, viewDir);
         float shadow = gShadowMappingEnabled ? ShadowCalc(FragPosLightSpace) : 0.0;
 
         if (gCellShadingEnabled)
