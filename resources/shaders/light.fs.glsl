@@ -61,7 +61,6 @@ uniform float rimIntensity = 0.5;
 
 // pixels with alpha below this are discarded (fixes black borders on hair)
 const float ALPHA_CUTOFF = 0.5;
-const float GAMMA = 2.2;
 
 // cast shadows darken to this fraction of the ramp's shadow color, so they stay
 // visible even on surfaces already in the lowest toon band (e.g. the floor)
@@ -211,6 +210,7 @@ void main()
         result = texColor;
     }
 
-    result = clamp(result, 0.0, 1.0);
-    FragColor = vec4(pow(result, vec3(1.0 / GAMMA)), 1.0);   // linear -> sRGB
+    // only clamps the bottom end; no negative values
+    // gamma correction is now on bloom_composite.fs.glsl
+    FragColor = vec4(max(result, 0.0), 1.0);
 }
