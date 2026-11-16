@@ -68,6 +68,13 @@ struct RimLight
     glm::vec2 direction = glm::vec2(-0.65f, 1.0f);   // screen-space: x right, y up
 };
 
+struct Bloom
+{
+    bool bloomOnly = false;     // debug view: show only bloom
+    float intensity = 0.59f;
+    int passes = 4;        // horizontal + vertical blur pairs: more = wider, softer glow
+};
+
 namespace shader_config
 {
     void applyCamera(Shader& shader, const glm::mat4& projection, const glm::mat4& view, const glm::vec3& viewPos);

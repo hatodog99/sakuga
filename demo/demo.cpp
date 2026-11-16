@@ -1,5 +1,4 @@
 // TODO: 
-// post-processing: bloom
 // api integration
 // 
 // nice to haves:
@@ -38,7 +37,6 @@ Camera camera(cameraPos);
 // frame times
 float deltaTime = 0.0f;
 float lastFrameTime = 0.0f;
-float currentFrameTime = 0.0f;
 
 Input input(camera, deltaTime);
 
@@ -167,7 +165,8 @@ void drawOutline(Shader& shader, Model& charModel, const glm::mat4& model) {
 }
 
 // frees the GL objects the model owns that are reachable from outside the class: its textures
-// and mesh VAOs. Mesh keeps its VBO/EBO private, so those need Mesh::release() (see notes).
+// and mesh VAOs. Mesh keeps its VBO/EBO private, so those still leak until Mesh gets a
+// release() method that deletes them (add one to sakuga/mesh.h and call it here).
 void releaseModel(Model& model)
 {
 	for (Texture& t : model.textures_loaded)
@@ -231,6 +230,106 @@ void releaseDepthMap()
 	if (depthMap) { glDeleteTextures(1, &depthMap); depthMap = 0; }
 }
 
+// ---- bloom / HDR render targets ---------------------------------------------
+// the scene is rendered in linear HDR (RGBA16F) so values above 1.0 survive, then:
+//   sceneFBO    multisampled target the scene is drawn into (keeps the 4x MSAA). two outputs:
+//               attachment 0 = the lit scene, attachment 1 = glow mask (only what should bloom)
+//   resolveFBO  single-sample copy of it (MSAA textures can't be sampled by the post passes)
+//   pingpongFBO half-resolution pair used for the separable blur
+const int MSAA_SAMPLES = 4;
+unsigned int sceneFBO = 0, sceneColorRBO = 0, sceneDepthRBO = 0;
+unsigned int resolveFBO = 0, resolveTex = 0;
+unsigned int sceneGlowMaskRBO = 0;		// attachment 1: glow mask (only what should bloom)
+unsigned int glowMaskResolveFBO = 0, glowMaskResolveTex = 0;
+constexpr std::size_t pingpongSize = 2;
+unsigned int pingpongFBO[pingpongSize] = { 0,0 };
+unsigned int pingpongTex[pingpongSize] = { 0,0 };
+int bloomW = 0, bloomH = 0;		// size the targets were last allocated for
+
+void checkFramebuffer(const char* name)
+{
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+		std::cout << "framebuffer not complete: " << name << std::endl;
+}
+
+// an FBO whose only attachment is a float color texture
+void createColorTarget(unsigned int& fbo, unsigned int& tex, int w, int h, const char* name)
+{
+	glGenTextures(1, &tex);
+	glBindTexture(GL_TEXTURE_2D, tex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, w, h, 0, GL_RGBA, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	glGenFramebuffers(1, &fbo);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
+	checkFramebuffer(name);
+}
+
+void releaseBloomTargets()
+{
+	if (sceneFBO) { glDeleteFramebuffers(1, &sceneFBO); sceneFBO = 0; }
+	if (sceneColorRBO) { glDeleteRenderbuffers(1, &sceneColorRBO); sceneColorRBO = 0; }
+	if (sceneDepthRBO) { glDeleteRenderbuffers(1, &sceneDepthRBO); sceneDepthRBO = 0; }
+	if (resolveFBO) { glDeleteFramebuffers(1, &resolveFBO); resolveFBO = 0; }
+	if (resolveTex) { glDeleteTextures(1, &resolveTex); resolveTex = 0; }
+	if (sceneGlowMaskRBO) { glDeleteRenderbuffers(1, &sceneGlowMaskRBO); sceneGlowMaskRBO = 0; }
+	if (glowMaskResolveFBO) { glDeleteFramebuffers(1, &glowMaskResolveFBO); glowMaskResolveFBO = 0; }
+	if (glowMaskResolveTex) { glDeleteTextures(1, &glowMaskResolveTex); glowMaskResolveTex = 0; }
+	for (std::size_t i = 0; i < pingpongSize; ++i)
+	{
+		if (pingpongFBO[i]) { glDeleteFramebuffers(1, &pingpongFBO[i]); pingpongFBO[i] = 0; }
+		if (pingpongTex[i]) { glDeleteTextures(1, &pingpongTex[i]); pingpongTex[i] = 0; }
+	}
+	bloomW = bloomH = 0;
+}
+
+// (re)creates every bloom target for a w x h window. call again whenever the window is resized.
+void createBloomTargets(int w, int h)
+{
+	releaseBloomTargets();
+
+	// 1st color attachment: lit msaa HDR color scene
+	glGenFramebuffers(1, &sceneFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, sceneFBO);
+
+	glGenRenderbuffers(1, &sceneColorRBO);
+	glBindRenderbuffer(GL_RENDERBUFFER, sceneColorRBO);
+	glRenderbufferStorageMultisample(GL_RENDERBUFFER, MSAA_SAMPLES, GL_RGBA16F, w, h);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, sceneColorRBO);
+
+	// 2nd color attachment: glow mask
+	glGenRenderbuffers(1, &sceneGlowMaskRBO);
+	glBindRenderbuffer(GL_RENDERBUFFER, sceneGlowMaskRBO);
+	glRenderbufferStorageMultisample(GL_RENDERBUFFER, MSAA_SAMPLES, GL_RGBA16F, w, h);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_RENDERBUFFER, sceneGlowMaskRBO);
+	const GLenum sceneBuffers[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+	glDrawBuffers(2, sceneBuffers);
+
+	// depth
+	glGenRenderbuffers(1, &sceneDepthRBO);
+	glBindRenderbuffer(GL_RENDERBUFFER, sceneDepthRBO);
+	glRenderbufferStorageMultisample(GL_RENDERBUFFER, MSAA_SAMPLES, GL_DEPTH_COMPONENT24, w, h);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, sceneDepthRBO);
+	checkFramebuffer("scene (msaa)");
+
+	// single-sample resolve target
+	createColorTarget(resolveFBO, resolveTex, w, h, "resolve");
+	createColorTarget(glowMaskResolveFBO, glowMaskResolveTex, w, h, "glow resolve");
+
+	// blur buffers at half resolution: 4x fewer pixels to blur, and the blur radius doubles for free
+	int hw = std::max(1, w / 2), hh = std::max(1, h / 2);
+	for (std::size_t i = 0; i < pingpongSize; ++i)
+		createColorTarget(pingpongFBO[i], pingpongTex[i], hw, hh, "bloom ping-pong");
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	bloomW = w;
+	bloomH = h;
+}
+
 void renderDepthMap(Shader& shader, Model& charModel) {
 	glCullFace(GL_FRONT);
 	glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
@@ -256,18 +355,17 @@ unsigned int loadTexture(const std::string& path) {
 	if (data) {
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 		glGenerateMipmap(GL_TEXTURE_2D);
+		stbi_image_free(data);
 	}
 	else {
 		std::cout << "failed to load texture: " << path << std::endl;
 	}
-	stbi_image_free(data);
 	return floorTexture;
 }
 
 int main()
 {
-	// initialize stuff
-	// ------------------------------------------------------------------------
+	// initialize stuff -------------------------------------------------------
 	// GLFW
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -276,7 +374,8 @@ int main()
 #ifdef __APPLE__
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
-	glfwWindowHint(GLFW_SAMPLES, 4);
+	// no GLFW_SAMPLES hint: the scene is rendered into our own MSAA FBO and the final pass is a
+	// fullscreen quad, so MSAA on the default framebuffer would only waste memory
 
 	// make & setup window
 	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "demo", NULL, NULL);
@@ -307,8 +406,6 @@ int main()
 	glEnable(GL_CULL_FACE);
 	glFrontFace(GL_CCW);
 
-	glEnable(GL_MULTISAMPLE);
-
 	// ImGui
 	gui::init(window);
 	ImGuiStyle& style = ImGui::GetStyle();
@@ -334,7 +431,11 @@ int main()
 	Shader outlineShader("resources/shaders/outline.vs.glsl", "resources/shaders/outline.fs.glsl");
 
 	Shader depthShader("resources/shaders/depth.vs.glsl", "resources/shaders/depth.fs.glsl");
-	Shader debugDepthQuadShader("resources/shaders/debug_depth_quad.vs.glsl", "resources/shaders/debug_depth_quad.fs.glsl");
+	Shader debugDepthQuadShader("resources/shaders/fullscreen_quad.vs.glsl", "resources/shaders/debug_depth_quad.fs.glsl");
+
+	// bloom: glow mask -> gaussian blur (ping-pong) -> composite
+	Shader blurShader("resources/shaders/fullscreen_quad.vs.glsl", "resources/shaders/bloom_blur.fs.glsl");
+	Shader compositeShader("resources/shaders/fullscreen_quad.vs.glsl", "resources/shaders/bloom_composite.fs.glsl");
 
 	Model charModel("resources/objects/2B/2B-1.glb");
 	//Model charModel("resources/objects/ijichi-nijika/1.fbx");
@@ -346,15 +447,17 @@ int main()
 	Outline outline;
 	ColorRamp ramp;
 	RimLight rim;
+	Bloom bloom;
 
 	// ui-only state
 	bool vsync = false;
 	glm::vec3 clearColor(0.10f, 0.10f, 0.10f);
 	CharTransform pendingTransform;		// edited in the panel, applied with "Apply transform"
 	float cameraSpeed = camera.MovementSpeed;
-	// not wired to the renderer yet (placeholders for the next features)
-	bool postProcessing = false, bloom = false;
-	float bloomAmount = 0.5f, ppIntensity = 1.0f;
+
+	// half-size of the shadow camera's orthographic box. anything outside it gets no shadow,
+	// so keep it large enough for the character at its biggest scale
+	const float SHADOW_EXTENT = 2.0f;
 
 	lastFrameTime = static_cast<float>(glfwGetTime());	// avoid first huge deltaTime
 
@@ -369,13 +472,32 @@ int main()
 	debugDepthQuadShader.use();
 	debugDepthQuadShader.setInt("depthMap", 0);
 
-	// render stuff
-	// ------------------------------------------------------------------------
+	// for bloom
+	blurShader.use();
+	blurShader.setInt("image", 0);
+	compositeShader.use();
+	compositeShader.setInt("scene", 0);
+	compositeShader.setInt("bloomBlur", 1);
+
+	// render loop ------------------------------------------------------------
 	while (!glfwWindowShouldClose(window))
 	{
+		// calc current frame time
 		float currentFrameTime = static_cast<float>(glfwGetTime());
 		deltaTime = currentFrameTime - lastFrameTime;
 		lastFrameTime = currentFrameTime;
+
+		// if window is minimized: nothing to draw (and a 0x0 framebuffer is invalid), so wait for an event
+		if (SCR_WIDTH == 0 || SCR_HEIGHT == 0)
+		{
+			glfwWaitEvents();
+			lastFrameTime = static_cast<float>(glfwGetTime());	// don't turn the wait into one huge deltaTime
+			continue;
+		}
+
+		// (re)allocate the HDR/bloom targets on first frame and whenever the window size changes
+		if ((int)SCR_WIDTH != bloomW || (int)SCR_HEIGHT != bloomH)
+			createBloomTargets((int)SCR_WIDTH, (int)SCR_HEIGHT);
 
 		fpsTimer += deltaTime;
 		++fpsFrames;
@@ -397,8 +519,7 @@ int main()
 
 		input.processInput(window);
 
-		// ui (built first, so edits apply to this frame)
-		// --------------------------------------------------------------------
+		// ui (built first, so edits apply to this frame) ---------------------
 		gui::setMouseEnabled(!input.mouseLook);
 		// scale the gui with the window (limiting side wins, so panels never outgrow the window)
 		float guiScale = std::min(SCR_WIDTH / GUI_BASE_WIDTH, SCR_HEIGHT / GUI_BASE_HEIGHT);
@@ -454,7 +575,7 @@ int main()
 			ImGui::Checkbox("Toon shading", &input.cellShading);
 			ImGui::Checkbox("Outlines", &input.outline);
 			ImGui::Checkbox("Rim lighting", &input.rimLighting);
-			ImGui::Checkbox("Post-processing", &postProcessing);			// placeholder
+			ImGui::Checkbox("Post-processing", &input.postProcessing);
 			ImGui::PushItemWidth(guiItemWidth);
 			if (ImGui::SliderFloat("Camera speed", &cameraSpeed, 0.5f, 10.0f))
 				camera.MovementSpeed = cameraSpeed;
@@ -470,15 +591,16 @@ int main()
 		}
 		gui::endPanel(left);
 
-		if (postProcessing && gui::beginPanel(left, "Post-processing (not implemented)"))
+		if (input.postProcessing && gui::beginPanel(left, "Post-processing"))
 		{
-			ImGui::Checkbox("Bloom", &bloom);
+			ImGui::Checkbox("Bloom", &input.bloom);
 			ImGui::PushItemWidth(guiItemWidth);
-			ImGui::SliderFloat("Intensity", &ppIntensity, 0.0f, 2.0f);
-			ImGui::SliderFloat("Bloom amount", &bloomAmount, 0.0f, 1.0f);
+			ImGui::SliderFloat("Intensity", &bloom.intensity, 0.0f, 4.0f);
+			ImGui::SliderInt("Blur passes", &bloom.passes, 1, 10);
 			ImGui::PopItemWidth();
+			ImGui::Checkbox("Bloom only (debug)", &bloom.bloomOnly);
 		}
-		if (postProcessing) gui::endPanel(left);
+		if (input.postProcessing) gui::endPanel(left);
 
 		// ---- right column ----
 		gui::PanelStack right = gui::rightColumn();
@@ -496,8 +618,7 @@ int main()
 					ImGui::SliderFloat("x##light", &dirLight.direction.x, -2.0f, 2.0f);
 					ImGui::SliderFloat("y##light", &dirLight.direction.y, -2.0f, 2.0f);
 					ImGui::SliderFloat("z##light", &dirLight.direction.z, -2.0f, 2.0f);
-					ImGui::BeginDisabled(input.cellShading);
-					ImGui::EndDisabled();
+					ImGui::PopItemWidth();
 					ImGui::EndTabItem();
 				}
 				if (ImGui::BeginTabItem("Intensity"))
@@ -521,7 +642,7 @@ int main()
 			ImGui::Checkbox("Enable##dir", &input.shadowMapping);
 			gui::sectionLabel("Shadow direction");
 			ImGui::SliderFloat("x##shadow", &shadowMap.lightDir.x, -1.0f, 1.0f);
-			ImGui::SliderFloat("y (steepness)##shadow", &shadowMap.lightDir.y, -2.0f, 0.0f);
+			ImGui::SliderFloat("y (steepness)##shadow", &shadowMap.lightDir.y, -2.0f, -0.01f);	// can't reach 0: zero-length dir
 			ImGui::SliderFloat("z##shadow", &shadowMap.lightDir.z, -1.0f, 1.0f);
 			ImGui::PopItemWidth();
 		}
@@ -577,19 +698,24 @@ int main()
 		gui::controlsBar();
 		// --------------------------------------------------------------------
 
-		// background
-		glClearColor(clearColor.r, clearColor.g, clearColor.b, 1.0f);
-
-		// clear buffers for every frame
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		// background. the scene buffer is linear and gets gamma-encoded in the composite pass,
+		// so the picked (sRGB) color has to be converted to linear here to look the same on screen
+		glm::vec3 clearLinear = glm::pow(clearColor, glm::vec3(2.2f));
+		glClearColor(clearLinear.r, clearLinear.g, clearLinear.b, 1.0f);
 
 		// render depth of scene to texture (from light's POV) in orthographic view
 		float lightNearPlane = 1.0f, lightFarPlane = 20.0f;
 		float lightDisFromOrig = 7.0f;
-		glm::vec3 lightPos = -glm::normalize(shadowMap.lightDir) * lightDisFromOrig;
-		glm::vec3 up = (fabs(shadowMap.lightDir.y) > 0.99f) ? glm::vec3(0.0f, 0.0f, 1.0f) : glm::vec3(0.0f, 1.0f, 0.0f);
 
-		glm::mat4 lightProjection = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, lightNearPlane, lightFarPlane);
+		// normalize once (falling back to straight down if the direction is degenerate) and use
+		// the normalized vector for both the position and the up-vector test
+		glm::vec3 lightDirN = (glm::length(shadowMap.lightDir) > 1e-4f)
+			? glm::normalize(shadowMap.lightDir)
+			: glm::vec3(0.0f, -1.0f, 0.0f);
+		glm::vec3 lightPos = -lightDirN * lightDisFromOrig;
+		glm::vec3 up = (std::abs(lightDirN.y) > 0.99f) ? glm::vec3(0.0f, 0.0f, 1.0f) : glm::vec3(0.0f, 1.0f, 0.0f);
+
+		glm::mat4 lightProjection = glm::ortho(-SHADOW_EXTENT, SHADOW_EXTENT, -SHADOW_EXTENT, SHADOW_EXTENT, lightNearPlane, lightFarPlane);
 		glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), up);
 		glm::mat4 lightSpaceMatrix = lightProjection * lightView;
 
@@ -598,9 +724,12 @@ int main()
 		depthShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
 		renderDepthMap(depthShader, charModel);
 
-		// reset viewport
+		// everything from here until the composite pass draws into the multisampled HDR target
+		glBindFramebuffer(GL_FRAMEBUFFER, sceneFBO);
 		glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		const float noGlow[4] = { 0.0f, 0.0f,  0.0f, 1.0f };
+		glClearBufferfv(GL_COLOR, 1, noGlow);	// glClear used the background color: reset glow mask to black
 
 		// view/projection transformations
 		float aspect = (SCR_HEIGHT > 0) ? (float)SCR_WIDTH / (float)SCR_HEIGHT : 1.0f;
@@ -610,8 +739,12 @@ int main()
 		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), aspect, nearPlane, farPlane);
 		glm::mat4 view = camera.GetViewMatrix();
 
-		// rendering
-		// --------------------------------------------------------------------
+		// rendering ----------------------------------------------------------
+		// the shadow map lives on unit 1 for the whole pass, so the sampler never points at an empty unit
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, depthMap);
+		glActiveTexture(GL_TEXTURE0);
+
 		// character
 		shader.use();
 		shader_config::applyCamera(shader, projection, view, camera.Position);
@@ -630,14 +763,12 @@ int main()
 		shader.setBool("gReceiveRimLighting", false);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, floorTexture);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, depthMap);
-		glActiveTexture(GL_TEXTURE0);
 		drawFloor(shader);
 
 		// outline
 		if (input.outline)
 		{
+			glDrawBuffer(GL_COLOR_ATTACHMENT0);	// don't touch glow mask
 			glCullFace(GL_FRONT);
 
 			outlineShader.use();
@@ -646,7 +777,60 @@ int main()
 			drawOutline(outlineShader, charModel, getCharacterModelMatrix());
 
 			glCullFace(GL_BACK);
+			const GLenum sceneBuffers[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+			glDrawBuffers(2, sceneBuffers);
 		}
+
+		// post-processing ----------------------------------------------------
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, sceneFBO);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, resolveFBO);
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+		glBlitFramebuffer(0, 0, bloomW, bloomH, 0, 0, bloomW, bloomH, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, glowMaskResolveFBO);
+		glReadBuffer(GL_COLOR_ATTACHMENT1);
+		glBlitFramebuffer(0, 0, bloomW, bloomH, 0, 0, bloomW, bloomH, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+		glReadBuffer(GL_COLOR_ATTACHMENT0);
+
+		glDisable(GL_DEPTH_TEST);
+		glDisable(GL_CULL_FACE);
+
+		bool bloomActive = input.postProcessing && input.bloom;
+		if (bloomActive)
+		{
+			glViewport(0, 0, std::max(1, bloomW / 2), std::max(1, bloomH / 2));
+
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, glowMaskResolveFBO);
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, pingpongFBO[0]);
+			glBlitFramebuffer(0, 0, bloomW, bloomH, 0, 0, std::max(1, bloomW / 2), std::max(1, bloomH / 2),
+				GL_COLOR_BUFFER_BIT, GL_LINEAR);
+
+			blurShader.use();
+			bool horizontal = true;
+			for (int i = 0; i < bloom.passes * 2; ++i)
+			{
+				glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[horizontal]);
+				blurShader.setBool("horizontal", horizontal);
+				glBindTexture(GL_TEXTURE_2D, pingpongTex[!horizontal]);
+				renderQuad();
+				horizontal = !horizontal;
+			}
+		}
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+		compositeShader.use();
+		compositeShader.setBool("bloomEnabled", bloomActive);
+		compositeShader.setFloat("bloomIntensity", bloom.intensity);
+		compositeShader.setBool("bloomOnly", bloomActive && bloom.bloomOnly);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, resolveTex);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, pingpongTex[0]);
+		renderQuad();
+		glActiveTexture(GL_TEXTURE0);
+
+		glEnable(GL_DEPTH_TEST);
+		glEnable(GL_CULL_FACE);
 
 		// render depth map to quad for visual shadow debugging
 		//debugDepthQuadShader.use();
@@ -682,6 +866,7 @@ int main()
 	releaseModel(charModel);
 	glDeleteTextures(1, &floorTexture);
 	releaseDepthMap();
+	releaseBloomTargets();
 	releasePlane();
 	releaseQuad();
 
@@ -689,6 +874,8 @@ int main()
 	glDeleteProgram(outlineShader.ID);
 	glDeleteProgram(depthShader.ID);
 	glDeleteProgram(debugDepthQuadShader.ID);
+	glDeleteProgram(blurShader.ID);
+	glDeleteProgram(compositeShader.ID);
 
 	glfwDestroyWindow(window);
 	glfwTerminate();
