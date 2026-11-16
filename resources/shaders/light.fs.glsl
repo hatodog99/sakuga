@@ -1,5 +1,6 @@
 #version 330 core
-out vec4 FragColor;
+layout (location = 0) out vec4 FragColor;   // lit scene (linear HDR)
+layout (location = 1) out vec4 GlowColor;   // glow mask: only what should bloom
 
 in vec3 FragPos;
 in vec3 Normal;
@@ -173,6 +174,7 @@ void main()
     vec3 texColor = texSample.rgb;
 
     vec3 result;
+    vec3 glow = vec3(0.0);
 
     if (gLightingEnabled)
     {
@@ -184,6 +186,7 @@ void main()
         DirLightCalc(dirLight, norm, viewDir, ambient, diffuse, specular);
 
         vec3 rim = RimCalc(norm, viewDir);
+        glow = rim;     // the floor has gReceiveRimLighting = false, so rim (and glow) is 0 there
         float shadow = gShadowMappingEnabled ? ShadowCalc(FragPosLightSpace) : 0.0;
 
         if (gCellShadingEnabled)
@@ -213,4 +216,5 @@ void main()
     // only clamps the bottom end; no negative values
     // gamma correction is now on bloom_composite.fs.glsl
     FragColor = vec4(max(result, 0.0), 1.0);
+    GlowColor = vec4(glow, 1.0);
 }
