@@ -603,10 +603,12 @@
     <None Include="includes\glm\gtx\vector_query.inl" />
     <None Include="includes\glm\gtx\wrap.inl" />
     <None Include="resources\shaders\bloom_blur.fs.glsl" />
+    <None Include="resources\shaders\bloom_bright.fs.glsl" />
+    <None Include="resources\shaders\bloom_composite.fs.glsl" />
     <None Include="resources\shaders\bloom_final.fs.glsl" />
     <None Include="resources\shaders\bloom_quad.vs.glsl" />
     <None Include="resources\shaders\debug_depth_quad.fs.glsl" />
-    <None Include="resources\shaders\debug_depth_quad.vs.glsl" />
+    <None Include="resources\shaders\fullscreen_quad.vs.glsl" />
     <None Include="resources\shaders\depth.fs.glsl" />
     <None Include="resources\shaders\depth.vs.glsl" />
     <None Include="resources\shaders\light.fs.glsl" />
