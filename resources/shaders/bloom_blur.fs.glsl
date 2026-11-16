@@ -13,7 +13,7 @@ uniform float weight[5] = float[] (0.227027, 0.1945946, 0.1216216, 0.054054, 0.0
 
 void main()
 {
-	vec2 texel = 1.0 / textureSize(image, 0)	// size of one texel
+	vec2 texel = 1.0 / textureSize(image, 0);	// size of one texel
     vec2 dir = horizontal ? vec2(texel.x, 0.0) : vec2(0.0, texel.y);
 
 	// blur texels
