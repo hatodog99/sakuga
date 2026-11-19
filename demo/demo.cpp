@@ -179,9 +179,8 @@ void releaseModel(Model& model)
 		if (m.VAO) { glDeleteVertexArrays(1, &m.VAO); m.VAO = 0; }
 }
 
-const float floorY = -0.8f;
-
 // editable from the "Character" panel
+const float floorY = -0.8f;
 struct CharTransform {
 	glm::vec3 position = glm::vec3(0.0f, floorY, 0.0f);
 	glm::vec3 rotation = glm::vec3(0.0f);	// degrees, XYZ
@@ -440,7 +439,7 @@ int main()
 	Shader compositeShader("resources/shaders/fullscreen_quad.vs.glsl", "resources/shaders/bloom_composite.fs.glsl");
 
 	Model charModel("resources/objects/2B/2B-1.glb");
-	//Model charModel("resources/objects/ijichi-nijika/1.fbx");
+	// Model charModel("resources/objects/ijichi-nijika/1.fbx");
 
 	// shader uniforms
 	DirLight dirLight;
@@ -853,9 +852,6 @@ int main()
 			float amplitude = 0.8f;
 			dirLight.direction.x = std::sin(currentFrameTime * speed) * amplitude;
 			dirLight.direction.z = std::cos(currentFrameTime * speed) * amplitude;
-
-			//shadowMap.lightDir.x = std::sin(currentFrameTime * speed);
-			//shadowMap.lightDir.z = std::cos(currentFrameTime * speed);
 		}
 
 		// ui is drawn last so it sits on top of the scene
