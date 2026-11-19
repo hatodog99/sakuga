@@ -36,6 +36,7 @@ struct DirLight
 
 struct ShadowMap
 {
+    bool shadowOnly = false;
     glm::vec3 lightDir = glm::vec3(-0.2f, -1.0f, -0.03f);
 };
 

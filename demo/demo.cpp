@@ -27,8 +27,9 @@ unsigned int SCR_HEIGHT = 576;
 
 // gui scale = window size / this reference size. A bigger reference gives a smaller gui:
 // 1280x720 puts the gui at ~0.77x in the default 1024x576 window (both sides limit equally).
-const float GUI_BASE_WIDTH = 1329.87f;
-const float GUI_BASE_HEIGHT = 748.05f;
+const float GUI_BASE_SCALE = 0.74f;
+const float GUI_BASE_WIDTH = SCR_WIDTH / GUI_BASE_SCALE;
+const float GUI_BASE_HEIGHT = SCR_HEIGHT / GUI_BASE_SCALE;
 
 // camera (driven by Input: WASD, mouse look, scroll zoom)
 glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
@@ -145,11 +146,12 @@ void releasePlane()
 	if (planeEBO) { glDeleteBuffers(1, &planeEBO); planeEBO = 0; }
 }
 
+float floorHW = 4.0f;	// 4x4 floor
 void drawFloor(Shader& shader) {
 	glm::mat4 model = glm::mat4(1.0f);
 	model = glm::translate(model, glm::vec3(0.0f, -0.8f, 0.0f));
 	model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-	model = glm::scale(model, glm::vec3(7.0f, 7.0f, 1.0f));	// 7x7 floor
+	model = glm::scale(model, glm::vec3(floorHW, floorHW, 1.0f));
 	shader.setMat4("model", model);
 	renderPlane();
 }
@@ -241,7 +243,7 @@ unsigned int sceneFBO = 0, sceneColorRBO = 0, sceneDepthRBO = 0;
 unsigned int resolveFBO = 0, resolveTex = 0;
 unsigned int sceneGlowMaskRBO = 0;		// attachment 1: glow mask (only what should bloom)
 unsigned int glowMaskResolveFBO = 0, glowMaskResolveTex = 0;
-constexpr std::size_t pingpongSize = 2;
+constexpr std::size_t pingpongSize = 4;
 unsigned int pingpongFBO[pingpongSize] = { 0,0 };
 unsigned int pingpongTex[pingpongSize] = { 0,0 };
 int bloomW = 0, bloomH = 0;		// size the targets were last allocated for
@@ -457,7 +459,7 @@ int main()
 
 	// half-size of the shadow camera's orthographic box. anything outside it gets no shadow,
 	// so keep it large enough for the character at its biggest scale
-	const float SHADOW_EXTENT = 2.0f;
+	const float SHADOW_EXTENT = floorHW;
 
 	lastFrameTime = static_cast<float>(glfwGetTime());	// avoid first huge deltaTime
 
@@ -640,6 +642,7 @@ int main()
 		{
 			ImGui::PushItemWidth(guiItemWidth);
 			ImGui::Checkbox("Enable##dir", &input.shadowMapping);
+			ImGui::Checkbox("Shadow only (debug)", &shadowMap.shadowOnly);
 			gui::sectionLabel("Shadow direction");
 			ImGui::SliderFloat("x##shadow", &shadowMap.lightDir.x, -1.0f, 1.0f);
 			ImGui::SliderFloat("y (steepness)##shadow", &shadowMap.lightDir.y, -2.0f, -0.01f);	// can't reach 0: zero-length dir
@@ -829,16 +832,19 @@ int main()
 		renderQuad();
 		glActiveTexture(GL_TEXTURE0);
 
+		// render depth map to quad for visual shadow debugging
+		if (input.shadowMapping && shadowMap.shadowOnly)
+		{
+			debugDepthQuadShader.use();
+			debugDepthQuadShader.setFloat("near_plane", lightNearPlane);
+			debugDepthQuadShader.setFloat("far_plane", lightFarPlane);
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, depthMap);
+			renderQuad();
+		}
+		
 		glEnable(GL_DEPTH_TEST);
 		glEnable(GL_CULL_FACE);
-
-		// render depth map to quad for visual shadow debugging
-		//debugDepthQuadShader.use();
-		//debugDepthQuadShader.setFloat("near_plane", lightNearPlane);
-		//debugDepthQuadShader.setFloat("far_plane", lightFarPlane);
-		//glActiveTexture(GL_TEXTURE0);
-		//glBindTexture(GL_TEXTURE_2D, depthMap);
-		//renderQuad();
 
 		// light movement
 		if (input.lightMovement)
