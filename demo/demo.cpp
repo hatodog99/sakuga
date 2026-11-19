@@ -146,7 +146,7 @@ void releasePlane()
 	if (planeEBO) { glDeleteBuffers(1, &planeEBO); planeEBO = 0; }
 }
 
-float floorHW = 4.0f;	// 4x4 floor
+float floorHW = 2.0f;	// 4x4 floor
 void drawFloor(Shader& shader) {
 	glm::mat4 model = glm::mat4(1.0f);
 	model = glm::translate(model, glm::vec3(0.0f, -0.8f, 0.0f));
