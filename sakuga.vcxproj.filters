@@ -1811,15 +1811,6 @@
     <None Include="resources\shaders\light.vs.glsl">
       <Filter>resources\shaders</Filter>
     </None>
-    <None Include="resources\shaders\light_cube.fs.glsl">
-      <Filter>resources\shaders</Filter>
-    </None>
-    <None Include="resources\shaders\light_cube.vs.glsl">
-      <Filter>resources\shaders</Filter>
-    </None>
-    <None Include="resources\shaders\no_light.fs.glsl">
-      <Filter>resources\shaders</Filter>
-    </None>
     <None Include="resources\shaders\outline.fs.glsl">
       <Filter>resources\shaders</Filter>
     </None>
