@@ -119,13 +119,6 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene, const glm::mat4& tra
         // start from known values so nothing is left uninitialized
         vertex.Normal = glm::vec3(0.0f);
         vertex.TexCoords = glm::vec2(0.0f);
-        vertex.Tangent = glm::vec3(0.0f);
-        vertex.Bitangent = glm::vec3(0.0f);
-        for (int b = 0; b < MAX_BONE_INFLUENCE; b++)
-        {
-            vertex.m_BoneIDs[b] = 0;
-            vertex.m_Weights[b] = 0.0f;
-        }
 
         // a placeholder, since assimp uses its own vector class that doesn't directly convert to glm's vec3
         glm::vec3 vec3Placeholder;
@@ -151,19 +144,6 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene, const glm::mat4& tra
             // a vertex can contain up to 8 different texture coordinates. We thus make the assumption that we won't
             // use models where a vertex can have multiple texture coordinates so we always take the first set (0).
             vertex.TexCoords = glm::vec2(mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y);
-
-            if (mesh->HasTangentsAndBitangents())
-            {
-                vec3Placeholder.x = mesh->mTangents[i].x;
-                vec3Placeholder.y = mesh->mTangents[i].y;
-                vec3Placeholder.z = mesh->mTangents[i].z;
-                vertex.Tangent = glm::normalize(directionMatrix * vec3Placeholder);
-
-                vec3Placeholder.x = mesh->mBitangents[i].x;
-                vec3Placeholder.y = mesh->mBitangents[i].y;
-                vec3Placeholder.z = mesh->mBitangents[i].z;
-                vertex.Bitangent = glm::normalize(directionMatrix * vec3Placeholder);
-            }
         }
 
         vertices.push_back(vertex);
