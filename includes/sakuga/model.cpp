@@ -65,7 +65,10 @@ void Model::loadModel(string const& path)
 {
     // the importer owns the scene, so the scene is only valid inside this function
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+    const aiScene* scene = importer.ReadFile(path, 
+        aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | 
+        aiProcess_ImproveCacheLocality | aiProcess_SortByPType | 
+        aiProcess_FlipUVs | aiProcess_GenSmoothNormals);
     // check for errors
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
     {
