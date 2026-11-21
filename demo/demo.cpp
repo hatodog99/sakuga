@@ -775,7 +775,6 @@ int main()
 
 			outlineShader.use();
 			shader_config::applyOutline(outlineShader, outline, projection, view);
-			outlineShader.setFloat("aspect", aspect);
 			drawOutline(outlineShader, charModel, getCharacterModelMatrix());
 
 			glCullFace(GL_BACK);
