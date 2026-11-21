@@ -602,8 +602,10 @@
     <None Include="resources\shaders\bloom_blur.fs.glsl" />
     <None Include="resources\shaders\bloom_bright.fs.glsl" />
     <None Include="resources\shaders\bloom_composite.fs.glsl" />
+    <None Include="resources\shaders\bloom_downsample.fs.glsl" />
     <None Include="resources\shaders\bloom_final.fs.glsl" />
     <None Include="resources\shaders\bloom_quad.vs.glsl" />
+    <None Include="resources\shaders\bloom_upsample.fs.glsl" />
     <None Include="resources\shaders\debug_depth_quad.fs.glsl" />
     <None Include="resources\shaders\fullscreen_quad.vs.glsl" />
     <None Include="resources\shaders\depth.fs.glsl" />

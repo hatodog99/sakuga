@@ -1829,6 +1829,8 @@
     <None Include="resources\shaders\bloom_blur.fs.glsl" />
     <None Include="resources\shaders\bloom_bright.fs.glsl" />
     <None Include="resources\shaders\bloom_composite.fs.glsl" />
+    <None Include="resources\shaders\bloom_downsample.fs.glsl" />
+    <None Include="resources\shaders\bloom_upsample.fs.glsl" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="includes\glm\CMakeLists.txt">
