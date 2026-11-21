@@ -50,8 +50,6 @@ namespace shader_config
         shader.setFloat("ramp.softness", ramp.softness);
         shader.setFloat("ramp.lowT", ramp.lowT);
         shader.setFloat("ramp.highT", ramp.highT);
-        shader.setFloat("ramp.lowT", ramp.lowT);
-        shader.setFloat("ramp.highT", ramp.highT);
     }
 
     void applyRimLight(Shader& shader, const RimLight& rim)
