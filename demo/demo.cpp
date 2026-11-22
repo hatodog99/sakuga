@@ -296,7 +296,7 @@ int main()
 				ImGui::SliderInt("Blur levels", &settings.bloom.levels, 1, sakuga::BLOOM_MAX_LEVELS);
 				ImGui::PopItemWidth();
 			}
-			if (input.bloom) gui::endPanel(left);
+			gui::endPanel(left);
 
 			// ---- right column ----
 			gui::PanelStack right = gui::rightColumn();
