@@ -29,7 +29,7 @@ struct DirLight
     glm::vec3 ambient = glm::vec3(0.7f);
     glm::vec3 diffuse = glm::vec3(0.7f);
     glm::vec3 specular = glm::vec3(0.5f);
-    float ambientIntensity = 1.57f;
+    float ambientIntensity = 1.0f;
     float diffuseIntensity = 1.0f;
     float specularIntensity = 1.0f;
 };
