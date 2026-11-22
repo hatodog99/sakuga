@@ -372,10 +372,13 @@ int main()
 			if (gui::beginPanel(left, "Render passes"))
 			{
 				ImGui::Checkbox("Lighting", &input.lighting);
+				ImGui::SameLine(100.0f);
 				ImGui::Checkbox("Shadow mapping", &input.shadowMapping);
 				ImGui::Checkbox("Toon shading", &input.cellShading);
+				ImGui::SameLine(100.0f);
 				ImGui::Checkbox("Outlines", &input.outline);
 				ImGui::Checkbox("Rim lighting", &input.rimLighting);
+				ImGui::SameLine(100.0f);
 				ImGui::Checkbox("Bloom", &input.bloom);
 				ImGui::PushItemWidth(guiItemWidth);
 				if (ImGui::SliderFloat("Camera speed", &cameraSpeed, 0.5f, 10.0f))
