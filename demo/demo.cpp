@@ -308,25 +308,25 @@ int main()
 					std::fill(std::begin(fpsHistory), std::end(fpsHistory), 0.0f);
 				}
 
-				gui::sectionLabel("GPU Timers");
-				const sakuga::GpuTimings gpu = renderer.gpuTimings();
-				ImGui::Text("shadow: %.2fms", gpu.shadow);
-				ImGui::SameLine(125.0f);
-				ImGui::Text("scene: %.2fms", gpu.scene);
-				ImGui::Text("outline: %.2fms", gpu.outline);
-				ImGui::SameLine(125.0f);
-				ImGui::Text("bloom: %.2fms", gpu.bloom);
-				ImGui::Text("composite: %.2fms", gpu.composite);
-				ImGui::SameLine(125.0f);
-				ImGui::Text("TOTAL: %.2fms", gpu.total());
 				ImGui::PushItemWidth(guiItemWidth);
-
 				const char* msaaItems[3] = { "Off", "2x", "4x" };
 				ImGui::Combo("MSAA", &msaaChoice, msaaItems, 3);
 				ImGui::SliderFloat("Render scale", &pendingRenderScale, 0.5f, 1.0f, "%.2f");
 				if (ImGui::IsItemDeactivatedAfterEdit())
 					renderScale = pendingRenderScale;
 				ImGui::PopItemWidth();
+
+				gui::sectionLabel("GPU Timers");
+				const sakuga::GpuTimings gpu = renderer.gpuTimings();
+				ImGui::Text("Shadow: %.2fms", gpu.shadow);
+				ImGui::SameLine(125.0f);
+				ImGui::Text("Scene: %.2fms", gpu.scene);
+				ImGui::Text("Outline: %.2fms", gpu.outline);
+				ImGui::SameLine(125.0f);
+				ImGui::Text("Bloom: %.2fms", gpu.bloom);
+				ImGui::Text("Composite: %.2fms", gpu.composite);
+				ImGui::SameLine(125.0f);
+				ImGui::Text("TOTAL: %.2fms", gpu.total());
 			}
 			gui::endPanel(left);
 
