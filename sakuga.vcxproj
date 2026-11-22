@@ -416,6 +416,7 @@
     <ClInclude Include="includes\KHR\khrplatform.h" />
     <ClInclude Include="includes\sakuga\mesh.h" />
     <ClInclude Include="includes\sakuga\model.h" />
+    <ClInclude Include="includes\sakuga\renderer.h" />
     <ClInclude Include="includes\sakuga\shader.h" />
     <ClInclude Include="includes\sakuga\shader_config.h" />
     <ClInclude Include="includes\sakuga\uniform_buffer.h" />
@@ -438,6 +439,7 @@
     <ClCompile Include="includes\sakuga\input.cpp" />
     <ClCompile Include="includes\sakuga\mesh.cpp" />
     <ClCompile Include="includes\sakuga\model.cpp" />
+    <ClCompile Include="includes\sakuga\renderer.cpp" />
     <ClCompile Include="includes\sakuga\shader.cpp" />
     <ClCompile Include="includes\sakuga\shader_config.cpp" />
     <ClCompile Include="includes\stb\stb_image.cpp" />
