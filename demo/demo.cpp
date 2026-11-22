@@ -11,6 +11,7 @@
 #include <stb/stb_image.h>
 
 #include <sakuga/camera.h>
+#include <sakuga/gpu_timer.h>
 #include <sakuga/gui.h>
 #include <sakuga/input.h>
 #include <sakuga/model.h>
@@ -148,28 +149,34 @@ void releasePlane()
 }
 
 float floorHW = 2.0f;	// 4x4 floor
+
+// per-draw matrices. the normal matrix is built here, once per draw, instead of inverting the
+// model matrix for every vertex in the vertex shader
+void setModelMatrices(Shader& shader, const glm::mat4& model) {
+	shader.setMat4("model", model);
+	shader.setMat3("normalMatrix", glm::transpose(glm::inverse(glm::mat3(model))));
+}
+
 void drawFloor(Shader& shader) {
 	glm::mat4 model = glm::mat4(1.0f);
 	model = glm::translate(model, glm::vec3(0.0f, -0.8f, 0.0f));
 	model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 	model = glm::scale(model, glm::vec3(floorHW, floorHW, 1.0f));
-	shader.setMat4("model", model);
+	setModelMatrices(shader, model);
 	renderPlane();
 }
 
 void drawCharacter(Shader& shader, Model& charModel, const glm::mat4& model) {
-	shader.setMat4("model", model);
-	charModel.Draw(shader);
+	setModelMatrices(shader, model);
+	charModel.Draw();
 }
 
 void drawOutline(Shader& shader, Model& charModel, const glm::mat4& model) {
-	shader.setMat4("model", model);
-	charModel.Draw(shader);
+	setModelMatrices(shader, model);
+	charModel.Draw();
 }
 
-// frees the GL objects the model owns that are reachable from outside the class: its textures
-// and mesh VAOs. Mesh keeps its VBO/EBO private, so those still leak until Mesh gets a
-// release() method that deletes them (add one to sakuga/mesh.h and call it here).
+// frees the GL objects the model owns: its textures and every mesh's VAO/VBO/EBO
 void releaseModel(Model& model)
 {
 	for (Texture& t : model.textures_loaded)
@@ -177,7 +184,7 @@ void releaseModel(Model& model)
 	model.textures_loaded.clear();
 
 	for (Mesh& m : model.meshes)
-		if (m.VAO) { glDeleteVertexArrays(1, &m.VAO); m.VAO = 0; }
+		m.release();
 }
 
 // editable from the "Character" panel
@@ -241,7 +248,9 @@ void releaseDepthMap()
 //               downsampled one level at a time, then upsampled back up with additive blending
 // every HDR target is R11G11B10F: 4 bytes per pixel instead of 8 for RGBA16F. nothing here needs
 // alpha, and the unsigned 11/10-bit floats are fine for the 0..few range this scene uses.
-const int MSAA_SAMPLES = 4;
+int msaaSamples = 4;		// 0 = off. changed from the UI, the targets are rebuilt when it differs from allocSamples
+int allocSamples = -1;		// msaa setting the targets were last allocated for (as requested)
+int activeSamples = 0;		// samples actually in use (the request clamped to what the GPU supports)
 const GLenum HDR_FORMAT = GL_R11F_G11F_B10F;
 unsigned int sceneFBO = 0, sceneColorRBO = 0, sceneDepthRBO = 0;
 unsigned int resolveFBO = 0, resolveTex = 0;
@@ -250,7 +259,7 @@ unsigned int glowMaskResolveFBO = 0, glowMaskResolveTex = 0;
 constexpr int BLOOM_MAX_LEVELS = 8;
 unsigned int bloomFBO[BLOOM_MAX_LEVELS] = {};
 unsigned int bloomTex[BLOOM_MAX_LEVELS] = {};
-int bloomW = 0, bloomH = 0;		// size the targets were last allocated for
+int bloomW = 0, bloomH = 0;		// render resolution: the size the scene and bloom targets were last allocated for
 
 // size of mip level i (level 0 = half resolution)
 int bloomLevelWidth(int i) { return std::max(1, bloomW >> (i + 1)); }
@@ -262,8 +271,8 @@ void checkFramebuffer(const char* name)
 		std::cout << "framebuffer not complete: " << name << std::endl;
 }
 
-// an FBO whose only attachment is an HDR color texture
-void createColorTarget(unsigned int& fbo, unsigned int& tex, int w, int h, const char* name)
+// an HDR color texture
+void createHdrTexture(unsigned int& tex, int w, int h)
 {
 	glGenTextures(1, &tex);
 	glBindTexture(GL_TEXTURE_2D, tex);
@@ -272,7 +281,12 @@ void createColorTarget(unsigned int& fbo, unsigned int& tex, int w, int h, const
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+}
 
+// an FBO whose only attachment is an HDR color texture
+void createColorTarget(unsigned int& fbo, unsigned int& tex, int w, int h, const char* name)
+{
+	createHdrTexture(tex, w, h);
 	glGenFramebuffers(1, &fbo);
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
@@ -297,38 +311,65 @@ void releaseBloomTargets()
 	bloomW = bloomH = 0;
 }
 
-// (re)creates every bloom target for a w x h window. call again whenever the window is resized.
-void createBloomTargets(int w, int h)
+// (re)creates every scene/bloom target for a w x h render resolution. call again whenever the
+// window size, the render scale or the msaa setting changes. samples = 0 turns msaa off.
+void createBloomTargets(int w, int h, int samples)
 {
 	releaseBloomTargets();
 
-	// 1st color attachment: lit msaa HDR color scene
+	GLint maxSamples = 0;
+	glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
+	allocSamples = samples;
+	samples = std::min(samples, (int)maxSamples);
+	activeSamples = samples;
+
 	glGenFramebuffers(1, &sceneFBO);
 	glBindFramebuffer(GL_FRAMEBUFFER, sceneFBO);
 
-	glGenRenderbuffers(1, &sceneColorRBO);
-	glBindRenderbuffer(GL_RENDERBUFFER, sceneColorRBO);
-	glRenderbufferStorageMultisample(GL_RENDERBUFFER, MSAA_SAMPLES, HDR_FORMAT, w, h);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, sceneColorRBO);
+	if (samples > 0)
+	{
+		// 1st color attachment: lit msaa HDR color scene
+		glGenRenderbuffers(1, &sceneColorRBO);
+		glBindRenderbuffer(GL_RENDERBUFFER, sceneColorRBO);
+		glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, HDR_FORMAT, w, h);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, sceneColorRBO);
 
-	// 2nd color attachment: glow mask
-	glGenRenderbuffers(1, &sceneGlowMaskRBO);
-	glBindRenderbuffer(GL_RENDERBUFFER, sceneGlowMaskRBO);
-	glRenderbufferStorageMultisample(GL_RENDERBUFFER, MSAA_SAMPLES, HDR_FORMAT, w, h);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_RENDERBUFFER, sceneGlowMaskRBO);
-	const GLenum sceneBuffers[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
-	glDrawBuffers(2, sceneBuffers);
+		// 2nd color attachment: glow mask
+		glGenRenderbuffers(1, &sceneGlowMaskRBO);
+		glBindRenderbuffer(GL_RENDERBUFFER, sceneGlowMaskRBO);
+		glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, HDR_FORMAT, w, h);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_RENDERBUFFER, sceneGlowMaskRBO);
 
-	// depth
-	glGenRenderbuffers(1, &sceneDepthRBO);
-	glBindRenderbuffer(GL_RENDERBUFFER, sceneDepthRBO);
-	glRenderbufferStorageMultisample(GL_RENDERBUFFER, MSAA_SAMPLES, GL_DEPTH_COMPONENT24, w, h);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, sceneDepthRBO);
-	checkFramebuffer("scene (msaa)");
+		// depth
+		glGenRenderbuffers(1, &sceneDepthRBO);
+		glBindRenderbuffer(GL_RENDERBUFFER, sceneDepthRBO);
+		glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_DEPTH_COMPONENT24, w, h);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, sceneDepthRBO);
+		const GLenum sceneBuffers[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+		glDrawBuffers(2, sceneBuffers);
+		checkFramebuffer("scene (msaa)");
 
-	// single-sample resolve targets
-	createColorTarget(resolveFBO, resolveTex, w, h, "resolve");
-	createColorTarget(glowMaskResolveFBO, glowMaskResolveTex, w, h, "glow resolve");
+		// single-sample resolve targets
+		createColorTarget(resolveFBO, resolveTex, w, h, "resolve");
+		createColorTarget(glowMaskResolveFBO, glowMaskResolveTex, w, h, "glow resolve");
+	}
+	else
+	{
+		// no msaa: the scene is drawn straight into the textures the post passes read,
+		// so there are no resolve copies at all (the cheapest option for integrated GPUs)
+		createHdrTexture(resolveTex, w, h);
+		createHdrTexture(glowMaskResolveTex, w, h);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, resolveTex, 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, glowMaskResolveTex, 0);
+
+		glGenRenderbuffers(1, &sceneDepthRBO);
+		glBindRenderbuffer(GL_RENDERBUFFER, sceneDepthRBO);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, w, h);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, sceneDepthRBO);
+		const GLenum sceneBuffers[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+		glDrawBuffers(2, sceneBuffers);
+		checkFramebuffer("scene (no msaa)");
+	}
 
 	// dual-filter mip chain: half resolution, then halving each level. always allocated at full
 	// depth (it is tiny next to the scene targets), the slider just picks how many levels to use
@@ -340,12 +381,13 @@ void createBloomTargets(int w, int h)
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void renderDepthMap(Shader& shader, Model& charModel) {
+void renderDepthMap(Shader& shader, Model& charModel, const glm::mat4& modelMatrix) {
 	glCullFace(GL_FRONT);
 	glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
 	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 	glClear(GL_DEPTH_BUFFER_BIT);
-	drawCharacter(shader, charModel, getCharacterModelMatrix());
+	shader.setMat4("model", modelMatrix);
+	charModel.DrawGeometry();		// the depth shader has no textures, so no texture binds
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glCullFace(GL_BACK);
 }
@@ -372,6 +414,9 @@ unsigned int loadTexture(const std::string& path) {
 	}
 	return floorTexture;
 }
+
+// GPU timer zones (GL allows one timer at a time, so these run one after another, never nested)
+enum GpuZone { ZONE_SHADOW, ZONE_SCENE, ZONE_OUTLINE, ZONE_BLOOM, ZONE_COMPOSITE, ZONE_COUNT };
 
 int main()
 {
@@ -415,6 +460,8 @@ int main()
 
 	glEnable(GL_CULL_FACE);
 	glFrontFace(GL_CCW);
+
+	GpuTimer gpuTimer(ZONE_COUNT);
 
 	// ImGui
 	gui::init(window);
@@ -474,6 +521,12 @@ int main()
 	CharTransform pendingTransform;		// edited in the panel, applied with "Apply transform"
 	float cameraSpeed = camera.MovementSpeed;
 
+	// quality knobs for weak GPUs. msaa and render scale rebuild the render targets when they change
+	const int msaaValues[3] = { 0, 2, 4 };
+	int msaaChoice = 2;						// index into msaaValues: starts at 4x, same look as before
+	float renderScale = 1.0f;				// 1.0 = native resolution; lower renders the 3D scene smaller and upscales it
+	float pendingRenderScale = renderScale;	// slider value, committed when the slider is released (resizing every frame while dragging would thrash)
+
 	// half-size of the shadow camera's orthographic box. anything outside it gets no shadow,
 	// so keep it large enough for the character at its biggest scale
 	const float SHADOW_EXTENT = floorHW;
@@ -492,6 +545,9 @@ int main()
 	debugDepthQuadShader.setInt("depthMap", 0);
 
 	// for bloom
+	outlineShader.use();
+	outlineShader.setInt("texture_diffuse1", 0);
+
 	downsampleShader.use();
 	downsampleShader.setInt("image", 0);
 	upsampleShader.use();
@@ -516,9 +572,16 @@ int main()
 			continue;
 		}
 
-		// (re)allocate the HDR/bloom targets on first frame and whenever the window size changes
-		if ((int)SCR_WIDTH != bloomW || (int)SCR_HEIGHT != bloomH)
-			createBloomTargets((int)SCR_WIDTH, (int)SCR_HEIGHT);
+		// (re)allocate the HDR/bloom targets on first frame and whenever the window size, render scale or msaa changes
+		{
+			int renderW = std::max(1, (int)std::lround(SCR_WIDTH * renderScale));
+			int renderH = std::max(1, (int)std::lround(SCR_HEIGHT * renderScale));
+			msaaSamples = msaaValues[msaaChoice];
+			if (renderW != bloomW || renderH != bloomH || msaaSamples != allocSamples)
+				createBloomTargets(renderW, renderH, msaaSamples);
+		}
+
+		gpuTimer.nextFrame();
 
 		fpsTimer += deltaTime;
 		++fpsFrames;
@@ -557,6 +620,22 @@ int main()
 			ImGui::Text("Minimum FPS: %.1f", minFPS);
 			ImGui::Text("Frame time:  %.2f ms", displayedMs);
 			gui::fpsGraph(fpsHistory, FPS_HISTORY, fpsOffset);
+			ImGui::Checkbox("GPU timers", &gpuTimer.enabled);
+			if (gpuTimer.enabled)
+			{
+				ImGui::Text("GPU ms  shadow %.2f  scene %.2f", gpuTimer.ms(ZONE_SHADOW), gpuTimer.ms(ZONE_SCENE));
+				ImGui::Text("        outline %.2f  bloom %.2f", gpuTimer.ms(ZONE_OUTLINE), gpuTimer.ms(ZONE_BLOOM));
+				float gpuTotal = 0.0f;
+				for (int z = 0; z < ZONE_COUNT; ++z) gpuTotal += gpuTimer.ms(z);
+				ImGui::Text("        composite %.2f  total %.2f", gpuTimer.ms(ZONE_COMPOSITE), gpuTotal);
+			}
+			ImGui::PushItemWidth(guiItemWidth);
+			const char* msaaItems[3] = { "Off", "2x", "4x" };
+			ImGui::Combo("MSAA", &msaaChoice, msaaItems, 3);
+			ImGui::SliderFloat("Render scale", &pendingRenderScale, 0.5f, 1.0f, "%.2f");
+			if (ImGui::IsItemDeactivatedAfterEdit())
+				renderScale = pendingRenderScale;
+			ImGui::PopItemWidth();
 			if (ImGui::Checkbox("Vsync", &vsync))
 			{
 				glfwSwapInterval(vsync ? 1 : 0);
@@ -596,7 +675,7 @@ int main()
 			ImGui::Checkbox("Toon shading", &input.cellShading);
 			ImGui::Checkbox("Outlines", &input.outline);
 			ImGui::Checkbox("Rim lighting", &input.rimLighting);
-			ImGui::Checkbox("Bloom", &input.bloom);
+			ImGui::Checkbox("Post-processing", &input.postProcessing);
 			ImGui::PushItemWidth(guiItemWidth);
 			if (ImGui::SliderFloat("Camera speed", &cameraSpeed, 0.5f, 10.0f))
 				camera.MovementSpeed = cameraSpeed;
@@ -612,9 +691,9 @@ int main()
 		}
 		gui::endPanel(left);
 
-		if (input.postProcessing && gui::beginPanel(left, "Bloom"))
+		if (input.postProcessing && gui::beginPanel(left, "Post-processing"))
 		{
-			ImGui::Checkbox("Enable", &input.bloom);
+			ImGui::Checkbox("Bloom", &input.bloom);
 			ImGui::PushItemWidth(guiItemWidth);
 			ImGui::SliderFloat("Intensity", &bloom.intensity, 0.0f, 4.0f);
 			ImGui::SliderInt("Blur levels", &bloom.levels, 1, BLOOM_MAX_LEVELS);
@@ -741,18 +820,6 @@ int main()
 		glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), up);
 		glm::mat4 lightSpaceMatrix = lightProjection * lightView;
 
-		// depth map (used for rendering shadows)
-		depthShader.use();
-		depthShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
-		renderDepthMap(depthShader, charModel);
-
-		// everything from here until the composite pass draws into the multisampled HDR target
-		glBindFramebuffer(GL_FRAMEBUFFER, sceneFBO);
-		glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		const float noGlow[4] = { 0.0f, 0.0f,  0.0f, 1.0f };
-		glClearBufferfv(GL_COLOR, 1, noGlow);	// glClear used the background color: reset glow mask to black
-
 		// view/projection transformations
 		float aspect = (SCR_HEIGHT > 0) ? (float)SCR_WIDTH / (float)SCR_HEIGHT : 1.0f;
 		float nearPlane = 0.1f;
@@ -760,22 +827,64 @@ int main()
 
 		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), aspect, nearPlane, farPlane);
 		glm::mat4 view = camera.GetViewMatrix();
+		const glm::mat4 charMatrix = getCharacterModelMatrix();
+
+		// depth map (used for rendering shadows). only the character casts shadows, and the depth map only
+		// depends on the shadow direction and the character's transform, so it is re-rendered only when
+		// one of those changes (not every frame). skipped completely while shadow mapping is off
+		static glm::mat4 cachedLightSpace(0.0f), cachedCharMatrix(0.0f);
+		static bool shadowMapValid = false;
+		if (input.shadowMapping && (!shadowMapValid || lightSpaceMatrix != cachedLightSpace || charMatrix != cachedCharMatrix))
+		{
+			gpuTimer.begin(ZONE_SHADOW);
+			depthShader.use();
+			depthShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
+			renderDepthMap(depthShader, charModel, charMatrix);
+			gpuTimer.end(ZONE_SHADOW);
+			cachedLightSpace = lightSpaceMatrix;
+			cachedCharMatrix = charMatrix;
+			shadowMapValid = true;
+		}
+
+		// the glow mask only holds the rim light. with lighting or rim lighting off (or zero rim
+		// intensity) it would be all black, so the second render target and the whole bloom
+		// chain are skipped
+		const bool bloomActive = input.postProcessing && input.bloom;
+		const bool hasGlow = input.lighting && input.rimLighting && rim.intensity > 0.0f;
+		const bool glowPass = bloomActive && hasGlow;
+		const GLenum sceneBuffers[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+		const int sceneBufferCount = glowPass ? 2 : 1;
+
+		// everything from here until the composite pass draws into the HDR scene target
+		// (at render resolution, which is smaller than the window when render scale < 1)
+		gpuTimer.begin(ZONE_SCENE);
+		glBindFramebuffer(GL_FRAMEBUFFER, sceneFBO);
+		glDrawBuffers(sceneBufferCount, sceneBuffers);
+		glViewport(0, 0, bloomW, bloomH);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		if (glowPass)
+		{
+			const float noGlow[4] = { 0.0f, 0.0f,  0.0f, 1.0f };
+			glClearBufferfv(GL_COLOR, 1, noGlow);	// glClear used the background color: reset glow mask to black
+		}
 
 		// rendering ----------------------------------------------------------
-		// the shadow map lives on unit 1 for the whole pass, so the sampler never points at an empty unit
+		// the shadow map lives on unit 1 for the whole pass, so the sampler never points at an empty unit.
+		// meshes only ever bind their diffuse texture to unit 0
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, depthMap);
 		glActiveTexture(GL_TEXTURE0);
 
-		// character
+		// per-frame uniforms: two uploads instead of ~30 uniform calls
 		frameUBO.update(shader_config::makeFrameData(projection, view, lightSpaceMatrix, camera.Position));
 		lightingUBO.update(shader_config::makeLightingData(dirLight, colors::whiteLight, material, ramp, rim,
 			input.lighting, input.cellShading, input.rimLighting, input.shadowMapping));
 
+		// character
 		shader.use();
 		shader.setBool("gReceiveShadowMapping", false);
 		shader.setBool("gReceiveRimLighting", true);
-		drawCharacter(shader, charModel, getCharacterModelMatrix());
+		drawCharacter(shader, charModel, charMatrix);
 
 		// floor
 		shader.setBool("gReceiveShadowMapping", true);
@@ -783,37 +892,48 @@ int main()
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, floorTexture);
 		drawFloor(shader);
+		gpuTimer.end(ZONE_SCENE);
 
 		// outline
 		if (input.outline)
 		{
+			gpuTimer.begin(ZONE_OUTLINE);
 			glDrawBuffer(GL_COLOR_ATTACHMENT0);	// don't touch glow mask
 			glCullFace(GL_FRONT);
 
 			outlineShader.use();
 			shader_config::applyOutline(outlineShader, outline);
-			drawOutline(outlineShader, charModel, getCharacterModelMatrix());
+			drawOutline(outlineShader, charModel, charMatrix);
 
 			glCullFace(GL_BACK);
-			const GLenum sceneBuffers[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
-			glDrawBuffers(2, sceneBuffers);
+			glDrawBuffers(sceneBufferCount, sceneBuffers);
+			gpuTimer.end(ZONE_OUTLINE);
 		}
 
 		// post-processing ----------------------------------------------------
-		glBindFramebuffer(GL_READ_FRAMEBUFFER, sceneFBO);
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, resolveFBO);
-		glReadBuffer(GL_COLOR_ATTACHMENT0);
-		glBlitFramebuffer(0, 0, bloomW, bloomH, 0, 0, bloomW, bloomH, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, glowMaskResolveFBO);
-		glReadBuffer(GL_COLOR_ATTACHMENT1);
-		glBlitFramebuffer(0, 0, bloomW, bloomH, 0, 0, bloomW, bloomH, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-		glReadBuffer(GL_COLOR_ATTACHMENT0);
+		gpuTimer.begin(ZONE_BLOOM);
+		if (activeSamples > 0)
+		{
+			// msaa: resolve into single-sample textures the post passes can sample.
+			// without msaa the scene was already drawn straight into those textures
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, sceneFBO);
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, resolveFBO);
+			glReadBuffer(GL_COLOR_ATTACHMENT0);
+			glBlitFramebuffer(0, 0, bloomW, bloomH, 0, 0, bloomW, bloomH, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+			if (glowPass)
+			{
+				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, glowMaskResolveFBO);
+				glReadBuffer(GL_COLOR_ATTACHMENT1);
+				glBlitFramebuffer(0, 0, bloomW, bloomH, 0, 0, bloomW, bloomH, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+			}
+			glReadBuffer(GL_COLOR_ATTACHMENT0);
+		}
 
 		glDisable(GL_DEPTH_TEST);
 		glDisable(GL_CULL_FACE);
 
 		int bloomLevels = std::clamp(bloom.levels, 1, BLOOM_MAX_LEVELS);
-		if (input.bloom)
+		if (glowPass)
 		{
 			glActiveTexture(GL_TEXTURE0);
 
@@ -840,21 +960,26 @@ int main()
 			}
 			glDisable(GL_BLEND);
 		}
+		gpuTimer.end(ZONE_BLOOM);
 
+		// composite to the window. this is the only full-resolution pass: with render scale < 1
+		// the scene texture is bilinearly upscaled here
+		gpuTimer.begin(ZONE_COMPOSITE);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
 		compositeShader.use();
-		compositeShader.setBool("bloomEnabled", input.bloom);
+		compositeShader.setBool("bloomEnabled", glowPass);
 		// every level is added into level 0, so divide by the level count to keep the total glow
 		// energy the same however many levels are used
 		compositeShader.setFloat("bloomIntensity", bloom.intensity / (float)bloomLevels);
-		compositeShader.setBool("bloomOnly", input.bloom && bloom.bloomOnly);
+		compositeShader.setBool("bloomOnly", bloomActive && bloom.bloomOnly);	// nothing glowing = black, as expected
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, resolveTex);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, bloomTex[0]);
 		renderQuad();
 		glActiveTexture(GL_TEXTURE0);
+		gpuTimer.end(ZONE_COMPOSITE);
 
 		// render depth map to quad for visual shadow debugging
 		if (input.shadowMapping && shadowMap.shadowOnly)
@@ -894,6 +1019,7 @@ int main()
 	glDeleteTextures(1, &floorTexture);
 	releaseDepthMap();
 	releaseBloomTargets();
+	gpuTimer.release();
 	frameUBO.release();
 	lightingUBO.release();
 	releasePlane();
