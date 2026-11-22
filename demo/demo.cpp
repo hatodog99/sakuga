@@ -310,9 +310,15 @@ int main()
 
 				gui::sectionLabel("GPU Timers");
 				const sakuga::GpuTimings gpu = renderer.gpuTimings();
-				ImGui::Text("shadow %.2fms				scene %.2fms", gpu.shadow, gpu.scene);
-				ImGui::Text("outline %.2fms			bloom %.2fms", gpu.outline, gpu.bloom);
-				ImGui::Text("composite %.2fms	total %.2fms", gpu.composite, gpu.total());
+				ImGui::Text("shadow: %.2fms", gpu.shadow);
+				ImGui::SameLine(125.0f);
+				ImGui::Text("scene: %.2fms", gpu.scene);
+				ImGui::Text("outline: %.2fms", gpu.outline);
+				ImGui::SameLine(125.0f);
+				ImGui::Text("bloom: %.2fms", gpu.bloom);
+				ImGui::Text("composite: %.2fms", gpu.composite);
+				ImGui::SameLine(125.0f);
+				ImGui::Text("TOTAL: %.2fms", gpu.total());
 				ImGui::PushItemWidth(guiItemWidth);
 
 				const char* msaaItems[3] = { "Off", "2x", "4x" };
@@ -372,13 +378,13 @@ int main()
 			if (gui::beginPanel(left, "Render passes"))
 			{
 				ImGui::Checkbox("Lighting", &input.lighting);
-				ImGui::SameLine(100.0f);
+				ImGui::SameLine(110.0f);
 				ImGui::Checkbox("Shadow mapping", &input.shadowMapping);
 				ImGui::Checkbox("Toon shading", &input.cellShading);
-				ImGui::SameLine(100.0f);
+				ImGui::SameLine(110.0f);
 				ImGui::Checkbox("Outlines", &input.outline);
 				ImGui::Checkbox("Rim lighting", &input.rimLighting);
-				ImGui::SameLine(100.0f);
+				ImGui::SameLine(110.0f);
 				ImGui::Checkbox("Bloom", &input.bloom);
 				ImGui::PushItemWidth(guiItemWidth);
 				if (ImGui::SliderFloat("Camera speed", &cameraSpeed, 0.5f, 10.0f))
