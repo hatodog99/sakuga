@@ -596,7 +596,7 @@ int main()
 			ImGui::Checkbox("Toon shading", &input.cellShading);
 			ImGui::Checkbox("Outlines", &input.outline);
 			ImGui::Checkbox("Rim lighting", &input.rimLighting);
-			ImGui::Checkbox("Post-processing", &input.postProcessing);
+			ImGui::Checkbox("Bloom", &input.bloom);
 			ImGui::PushItemWidth(guiItemWidth);
 			if (ImGui::SliderFloat("Camera speed", &cameraSpeed, 0.5f, 10.0f))
 				camera.MovementSpeed = cameraSpeed;
@@ -612,9 +612,9 @@ int main()
 		}
 		gui::endPanel(left);
 
-		if (input.postProcessing && gui::beginPanel(left, "Post-processing"))
+		if (input.postProcessing && gui::beginPanel(left, "Bloom"))
 		{
-			ImGui::Checkbox("Bloom", &input.bloom);
+			ImGui::Checkbox("Enable", &input.bloom);
 			ImGui::PushItemWidth(guiItemWidth);
 			ImGui::SliderFloat("Intensity", &bloom.intensity, 0.0f, 4.0f);
 			ImGui::SliderInt("Blur levels", &bloom.levels, 1, BLOOM_MAX_LEVELS);
@@ -812,9 +812,8 @@ int main()
 		glDisable(GL_DEPTH_TEST);
 		glDisable(GL_CULL_FACE);
 
-		bool bloomActive = input.postProcessing && input.bloom;
 		int bloomLevels = std::clamp(bloom.levels, 1, BLOOM_MAX_LEVELS);
-		if (bloomActive)
+		if (input.bloom)
 		{
 			glActiveTexture(GL_TEXTURE0);
 
@@ -845,11 +844,11 @@ int main()
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
 		compositeShader.use();
-		compositeShader.setBool("bloomEnabled", bloomActive);
+		compositeShader.setBool("bloomEnabled", input.bloom);
 		// every level is added into level 0, so divide by the level count to keep the total glow
 		// energy the same however many levels are used
 		compositeShader.setFloat("bloomIntensity", bloom.intensity / (float)bloomLevels);
-		compositeShader.setBool("bloomOnly", bloomActive && bloom.bloomOnly);
+		compositeShader.setBool("bloomOnly", input.bloom && bloom.bloomOnly);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, resolveTex);
 		glActiveTexture(GL_TEXTURE1);
