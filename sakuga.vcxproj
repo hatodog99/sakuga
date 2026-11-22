@@ -407,6 +407,7 @@
     <ClInclude Include="includes\imgui\imstb_textedit.h" />
     <ClInclude Include="includes\imgui\imstb_truetype.h" />
     <ClInclude Include="includes\sakuga\camera.h" />
+    <ClInclude Include="includes\sakuga\gpu_timer.h" />
     <ClInclude Include="includes\sakuga\gui.h" />
     <ClInclude Include="includes\sakuga\input.h" />
     <ClInclude Include="includes\glad\glad.h" />
