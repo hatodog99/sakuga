@@ -1245,6 +1245,7 @@
     <ClInclude Include="includes\imgui\backend\imgui_impl_opengl3_loader.h">
       <Filter>includes\imgui\backend</Filter>
     </ClInclude>
+    <ClInclude Include="includes\sakuga\uniform_buffer.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="demo">
@@ -1826,8 +1827,6 @@
     <None Include="resources\shaders\debug_depth_quad.fs.glsl" />
     <None Include="resources\shaders\bloom_final.fs.glsl" />
     <None Include="resources\shaders\bloom_quad.vs.glsl" />
-    <None Include="resources\shaders\bloom_blur.fs.glsl" />
-    <None Include="resources\shaders\bloom_bright.fs.glsl" />
     <None Include="resources\shaders\bloom_composite.fs.glsl" />
     <None Include="resources\shaders\bloom_downsample.fs.glsl" />
     <None Include="resources\shaders\bloom_upsample.fs.glsl" />
