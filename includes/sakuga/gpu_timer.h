@@ -18,8 +18,6 @@ public:
     static constexpr int MAX_ZONES = 8;
     static constexpr int LATENCY = 3;
 
-    bool enabled = true;
-
     explicit GpuTimer(int zoneCount) : zones(zoneCount < MAX_ZONES ? zoneCount : MAX_ZONES)
     {
         for (int z = 0; z < zones; ++z)
@@ -64,14 +62,14 @@ public:
 
     void begin(int zone)
     {
-        if (!enabled || zone >= zones || !queries[zone][0]) return;
+        if (zone >= zones || !queries[zone][0]) return;
         glBeginQuery(GL_TIME_ELAPSED, queries[zone][current]);
         issued[zone][current] = true;
     }
 
     void end(int zone)
     {
-        if (!enabled || zone >= zones || !queries[zone][0] || !issued[zone][current]) return;
+        if (zone >= zones || !queries[zone][0] || !issued[zone][current]) return;
         glEndQuery(GL_TIME_ELAPSED);
     }
 

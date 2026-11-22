@@ -585,7 +585,7 @@ int main()
 
 		fpsTimer += deltaTime;
 		++fpsFrames;
-		if (fpsTimer >= 0.5f)
+		if (fpsTimer >= 0.3f)
 		{
 			displayedMs = (fpsTimer / fpsFrames) * 1000.0f;
 			displayedFPS = fpsFrames / fpsTimer;
@@ -620,22 +620,6 @@ int main()
 			ImGui::Text("Minimum FPS: %.1f", minFPS);
 			ImGui::Text("Frame time:  %.2f ms", displayedMs);
 			gui::fpsGraph(fpsHistory, FPS_HISTORY, fpsOffset);
-			ImGui::Checkbox("GPU timers", &gpuTimer.enabled);
-			if (gpuTimer.enabled)
-			{
-				ImGui::Text("GPU ms  shadow %.2f  scene %.2f", gpuTimer.ms(ZONE_SHADOW), gpuTimer.ms(ZONE_SCENE));
-				ImGui::Text("        outline %.2f  bloom %.2f", gpuTimer.ms(ZONE_OUTLINE), gpuTimer.ms(ZONE_BLOOM));
-				float gpuTotal = 0.0f;
-				for (int z = 0; z < ZONE_COUNT; ++z) gpuTotal += gpuTimer.ms(z);
-				ImGui::Text("        composite %.2f  total %.2f", gpuTimer.ms(ZONE_COMPOSITE), gpuTotal);
-			}
-			ImGui::PushItemWidth(guiItemWidth);
-			const char* msaaItems[3] = { "Off", "2x", "4x" };
-			ImGui::Combo("MSAA", &msaaChoice, msaaItems, 3);
-			ImGui::SliderFloat("Render scale", &pendingRenderScale, 0.5f, 1.0f, "%.2f");
-			if (ImGui::IsItemDeactivatedAfterEdit())
-				renderScale = pendingRenderScale;
-			ImGui::PopItemWidth();
 			if (ImGui::Checkbox("Vsync", &vsync))
 			{
 				glfwSwapInterval(vsync ? 1 : 0);
@@ -646,6 +630,21 @@ int main()
 				displayedFPS = 0.0f; displayedMs = 0.0f;
 				std::fill(std::begin(fpsHistory), std::end(fpsHistory), 0.0f);
 			}
+
+			gui::sectionLabel("GPU Timers");
+			ImGui::Text("shadow %.2fms				scene %.2fms", gpuTimer.ms(ZONE_SHADOW), gpuTimer.ms(ZONE_SCENE));
+			ImGui::Text("outline %.2fms			bloom %.2fms", gpuTimer.ms(ZONE_OUTLINE), gpuTimer.ms(ZONE_BLOOM));
+			float gpuTotal = 0.0f;
+			for (int z = 0; z < ZONE_COUNT; ++z) gpuTotal += gpuTimer.ms(z);
+			ImGui::Text("composite %.2fms	total %.2fms", gpuTimer.ms(ZONE_COMPOSITE), gpuTotal);
+			ImGui::PushItemWidth(guiItemWidth);
+
+			const char* msaaItems[3] = { "Off", "2x", "4x" };
+			ImGui::Combo("MSAA", &msaaChoice, msaaItems, 3);
+			ImGui::SliderFloat("Render scale", &pendingRenderScale, 0.5f, 1.0f, "%.2f");
+			if (ImGui::IsItemDeactivatedAfterEdit())
+				renderScale = pendingRenderScale;
+			ImGui::PopItemWidth();
 		}
 		gui::endPanel(left);
 
