@@ -18,11 +18,12 @@ layout (std140) uniform FrameBlock
 };
 
 uniform mat4 model;
+uniform mat3 normalMatrix;   // normal matrix, built once per draw on the CPU
 
 void main()
 {
     FragPos = vec3(model * vec4(aPos, 1.0));
-    Normal = mat3(transpose(inverse(model))) * aNormal;
+    Normal = normalMatrix * aNormal;
     TexCoords = aTexCoords;
     FragPosLightSpace = lightSpaceMatrix * vec4(FragPos, 1.0);
 

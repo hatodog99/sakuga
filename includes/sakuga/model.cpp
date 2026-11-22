@@ -1,5 +1,7 @@
 #include "model.h"
 
+#include <assimp/config.h>
+#include <glm/gtc/packing.hpp>
 #include <stb/stb_image.h>
 
 #include <cstdio>
@@ -54,10 +56,16 @@ Model::Model(string const& path, bool gamma) : gammaCorrection(gamma)
 }
 
 // draws the model, and thus all its meshes
-void Model::Draw(Shader& shader)
+void Model::Draw()
 {
-    for (unsigned int i = 0; i < meshes.size(); i++)
-        meshes[i].Draw(shader);
+    for (Mesh& mesh : meshes)
+        mesh.Draw();
+}
+
+void Model::DrawGeometry() const
+{
+    for (const Mesh& mesh : meshes)
+        mesh.DrawGeometry();
 }
 
 // loads a model with supported ASSIMP extensions from file and stores the resulting meshes in the meshes vector.
@@ -65,10 +73,20 @@ void Model::loadModel(string const& path)
 {
     // the importer owns the scene, so the scene is only valid inside this function
     Assimp::Importer importer;
-    const aiScene* scene = importer.ReadFile(path, 
-        aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | 
-        aiProcess_ImproveCacheLocality | aiProcess_SortByPType | 
-        aiProcess_FlipUVs | aiProcess_GenSmoothNormals);
+
+    // the renderer only needs positions, normals, uvs and materials, so drop everything else at import
+    importer.SetPropertyInteger(AI_CONFIG_PP_RVC_FLAGS,
+        aiComponent_ANIMATIONS | aiComponent_COLORS | aiComponent_TANGENTS_AND_BITANGENTS |
+        aiComponent_LIGHTS | aiComponent_CAMERAS);
+
+    // OptimizeMeshes / OptimizeGraph / RemoveRedundantMaterials merge meshes that share a material:
+    // fewer meshes = fewer draw calls, and the model is drawn three times per frame (shadow, scene, outline)
+    const aiScene* scene = importer.ReadFile(path,
+        aiProcess_Triangulate | aiProcess_JoinIdenticalVertices |
+        aiProcess_ImproveCacheLocality | aiProcess_SortByPType |
+        aiProcess_FlipUVs | aiProcess_GenSmoothNormals |
+        aiProcess_RemoveComponent | aiProcess_RemoveRedundantMaterials |
+        aiProcess_OptimizeMeshes | aiProcess_OptimizeGraph);
     // check for errors
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
     {
@@ -82,6 +100,7 @@ void Model::loadModel(string const& path)
 
     // process ASSIMP's root node recursively
     processNode(scene->mRootNode, scene, glm::mat4(1.0f));
+    cout << "model loaded: " << meshes.size() << " meshes" << endl;
 }
 
 // processes a node in a recursive fashion. Processes each individual mesh located at the node and repeats this process on its children nodes (if any).
@@ -120,7 +139,7 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene, const glm::mat4& tra
     {
         Vertex vertex;
         // start from known values so nothing is left uninitialized
-        vertex.Normal = glm::vec3(0.0f);
+        vertex.Normal = glm::packSnorm3x10_1x2(glm::vec4(0.0f, 1.0f, 0.0f, 0.0f));
         vertex.TexCoords = glm::vec2(0.0f);
 
         // a placeholder, since assimp uses its own vector class that doesn't directly convert to glm's vec3
@@ -138,7 +157,7 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene, const glm::mat4& tra
             vec3Placeholder.x = mesh->mNormals[i].x;
             vec3Placeholder.y = mesh->mNormals[i].y;
             vec3Placeholder.z = mesh->mNormals[i].z;
-            vertex.Normal = glm::normalize(normalMatrix * vec3Placeholder);
+            vertex.Normal = glm::packSnorm3x10_1x2(glm::vec4(glm::normalize(normalMatrix * vec3Placeholder), 0.0f));
         }
 
         // texture coordinates

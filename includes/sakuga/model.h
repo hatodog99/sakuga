@@ -34,8 +34,11 @@ public:
     // constructor, expects a filepath to a 3D model.
     Model(string const& path, bool gamma = false);
 
-    // draws the model, and thus all its meshes
-    void Draw(Shader& shader);
+    // draws the model, and thus all its meshes (binds each mesh's diffuse texture)
+    void Draw();
+
+    // geometry only, no texture binds: for the shadow depth pass
+    void DrawGeometry() const;
 
 private:
     // loads a model with supported ASSIMP extensions from file and stores the resulting meshes in the meshes vector.

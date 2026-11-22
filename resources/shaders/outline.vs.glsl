@@ -6,6 +6,7 @@ layout (location = 2) in vec2 aTexCoords;
 out vec2 TexCoords;
 
 uniform mat4 model;
+uniform mat3 normalMatrix;   // normal matrix, built once per draw on the CPU
 
 // shared per-frame data (binding 0, see shader_config.h). must match light.vs.glsl / light.fs.glsl
 layout (std140) uniform FrameBlock
@@ -27,8 +28,7 @@ void main()
     TexCoords = aTexCoords;
 
     // push the vertex out along its normal in world space
-    mat3 normalMat = transpose(inverse(mat3(model)));
-    vec3 worldNormal = normalize(normalMat * aNormal);
+    vec3 worldNormal = normalize(normalMatrix * aNormal);
     vec3 worldPos = vec3(model * vec4(aPos, 1.0)) + worldNormal * outlineWidth;
 
     vec4 clipPos = projection * view * vec4(worldPos, 1.0);

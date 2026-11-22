@@ -8,17 +8,20 @@
 
 #include <sakuga/shader.h>
 
+#include <cstdint>
 #include <string>
 #include <vector>
 using namespace std;
 
 #define MAX_BONE_INFLUENCE 4
 
+// 24 bytes per vertex (was 32): the normal is packed into 4 bytes, which cuts the vertex fetch
+// bandwidth by a quarter. that matters on integrated GPUs, where the GPU shares RAM with the CPU.
 struct Vertex {
     // position
     glm::vec3 Position;
-    // normal
-    glm::vec3 Normal;
+    // normal, packed with glm::packSnorm3x10_1x2 (GL_INT_2_10_10_10_REV)
+    uint32_t Normal;
     // texCoords
     glm::vec2 TexCoords;
 };
@@ -31,24 +34,31 @@ struct Texture {
 
 class Mesh {
 public:
-    // mesh Data
-    vector<Vertex>       vertices;
-    vector<unsigned int> indices;
-    vector<Texture>      textures;
-    unsigned int VAO;
+    // the CPU copies of the vertices and indices are dropped once uploaded, only the GL objects stay
+    vector<Texture> textures;
+    unsigned int VAO = 0;
+    unsigned int indexCount = 0;
 
     // constructor
     Mesh(vector<Vertex> vertices, vector<unsigned int> indices, vector<Texture> textures);
 
-    // render the mesh
-    void Draw(Shader& shader);
+    // binds the diffuse texture (unit 0) and draws
+    void Draw();
+
+    // draws the geometry only. the shadow depth pass has no textures to bind
+    void DrawGeometry() const;
+
+    // deletes the VAO, VBO and EBO. call while the GL context still exists; safe to call twice
+    void release();
 
 private:
     // render data
-    unsigned int VBO, EBO;
+    unsigned int VBO = 0, EBO = 0;
+    unsigned int diffuseTexture = 0;     // the only texture the shaders sample (texture_diffuse1)
+    GLenum indexType = GL_UNSIGNED_INT;  // 16-bit indices when the mesh has < 65536 vertices
 
     // initializes all the buffer objects/arrays
-    void setupMesh();
+    void setupMesh(const vector<Vertex>& vertices, const vector<unsigned int>& indices);
 };
 
 #endif
