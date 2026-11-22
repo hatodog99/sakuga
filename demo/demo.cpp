@@ -14,6 +14,8 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <string>
+#include <vector>
 
 // screen
 unsigned int SCR_WIDTH = 1024;
@@ -42,24 +44,51 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 	SCR_HEIGHT = height;
 }
 
-// editable from the "Character properties" panel
+// files dropped onto the window. the callback only queues them: models are loaded at the start of the next frame
+std::vector<std::string> droppedPaths;
+void drop_callback(GLFWwindow* window, int count, const char** paths)
+{
+	for (int i = 0; i < count; ++i)
+		droppedPaths.emplace_back(paths[i]);
+}
+
+// ---- models in the scene -------------------------------------------------------
 const float floorY = -0.8f;
 const float floorHW = 2.0f;		// 4x4 floor
+
 struct CharTransform {
 	glm::vec3 position = glm::vec3(0.0f, floorY, 0.0f);
 	glm::vec3 rotation = glm::vec3(0.0f);	// degrees, XYZ
 	float scale = 1.0f;
 };
-CharTransform charTransform;
 
-glm::mat4 getCharacterModelMatrix() {
+glm::mat4 getModelMatrix(const CharTransform& t) {
 	glm::mat4 model = glm::mat4(1.0f);
-	model = glm::translate(model, charTransform.position);
-	model = glm::rotate(model, glm::radians(charTransform.rotation.x), glm::vec3(1, 0, 0));
-	model = glm::rotate(model, glm::radians(charTransform.rotation.y), glm::vec3(0, 1, 0));
-	model = glm::rotate(model, glm::radians(charTransform.rotation.z), glm::vec3(0, 0, 1));
-	model = glm::scale(model, glm::vec3(charTransform.scale));
+	model = glm::translate(model, t.position);
+	model = glm::rotate(model, glm::radians(t.rotation.x), glm::vec3(1, 0, 0));
+	model = glm::rotate(model, glm::radians(t.rotation.y), glm::vec3(0, 1, 0));
+	model = glm::rotate(model, glm::radians(t.rotation.z), glm::vec3(0, 0, 1));
+	model = glm::scale(model, glm::vec3(t.scale));
 	return model;
+}
+
+// file name without the directory
+std::string baseName(const std::string& path)
+{
+	size_t slash = path.find_last_of("/\\");
+	return (slash == std::string::npos) ? path : path.substr(slash + 1);
+}
+
+// trims whitespace and the quotes Windows adds with "Copy as path"
+std::string cleanPath(std::string s)
+{
+	auto junk = [](char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '"'; };
+	while (!s.empty() && junk(s.back()))
+		s.pop_back();
+	size_t start = 0;
+	while (start < s.size() && junk(s[start]))
+		++start;
+	return s.substr(start);
 }
 
 int main()
@@ -85,6 +114,7 @@ int main()
 	}
 	glfwMakeContextCurrent(window);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+	glfwSetDropCallback(window, drop_callback);
 	input.attach(window);	// cursor and scroll callbacks (must come before gui::init)
 
 	glfwSwapInterval(0);	// disable vsync for accurate fps measurement
@@ -127,18 +157,7 @@ int main()
 		desc.height = (int)SCR_HEIGHT;
 		sakuga::Renderer renderer(desc);
 
-		sakuga::ModelHandle character = renderer.loadModel("resources/objects/2B/2B-1.glb");
-		// sakuga::ModelHandle character = renderer.loadModel("resources/objects/ijichi-nijika/1.fbx");
-
 		sakuga::Scene scene;
-		sakuga::ModelInstance characterInstance;
-		characterInstance.model = character;
-		characterInstance.castShadow = true;
-		characterInstance.receiveShadow = false;
-		characterInstance.receiveRim = true;
-		characterInstance.outlined = true;
-		scene.instances.push_back(characterInstance);
-
 		scene.floor.y = floorY;
 		scene.floor.halfWidth = floorHW;
 		scene.floor.texture = renderer.loadTexture("resources/textures/concrete/Concrete047A_1K-JPG_Color.jpg");
@@ -147,9 +166,64 @@ int main()
 		sakuga::RenderSettings settings;
 		settings.shadowExtent = floorHW;
 
+		// model management ------------------------------------------------------
+		sakuga::ModelHandle currentModel;		// one model per session: importing replaces it
+		std::string modelName;
+		CharTransform charTransform;			// what is drawn
+		CharTransform pendingTransform;			// edited in the panel, applied with "Apply transform"
+		char importPath[512] = "";
+		std::string importStatus;
+
+		// loads a model file and makes it the scene's model. returns false (and sets importStatus) on failure,
+		// in which case the current model stays
+		auto importModel = [&](std::string path) -> bool
+			{
+				path = cleanPath(path);
+				if (path.empty())
+				{
+					importStatus = "Enter a model path first.";
+					return false;
+				}
+				sakuga::ModelHandle handle = renderer.loadModel(path);
+				if (!handle)
+				{
+					importStatus = "Could not load " + baseName(path);
+					return false;
+				}
+
+				// one model per session: the new model replaces the old one (the transform carries over)
+				if (currentModel)
+					renderer.unloadModel(currentModel);
+				currentModel = handle;
+				modelName = baseName(path);
+
+				sakuga::ModelInstance instance;		// defaults: casts shadows, rim lit, outlined
+				instance.model = handle;
+				scene.instances.clear();
+				scene.instances.push_back(instance);
+
+				importStatus = "Loaded " + modelName;
+				return true;
+			};
+
+		// removes the model from the scene and frees its GPU resources
+		auto deleteModel = [&]()
+			{
+				if (!currentModel)
+					return;
+				renderer.unloadModel(currentModel);
+				currentModel = sakuga::ModelHandle();
+				scene.instances.clear();
+				importStatus = "Deleted " + modelName;
+				modelName.clear();
+			};
+
+		importModel("resources/objects/2B/2B-1.glb");
+		// importModel("resources/objects/ijichi-nijika/1.fbx");
+		importStatus.clear();
+
 		// ui-only state
 		bool vsync = false;
-		CharTransform pendingTransform;		// edited in the panel, applied with "Apply transform"
 		float cameraSpeed = camera.MovementSpeed;
 
 		// quality knobs for weak GPUs
@@ -175,6 +249,11 @@ int main()
 				lastFrameTime = static_cast<float>(glfwGetTime());	// don't turn the wait into one huge deltaTime
 				continue;
 			}
+
+			// a model dragged onto the window (if several were dropped, the last one wins)
+			if (!droppedPaths.empty())
+				importModel(droppedPaths.back());
+			droppedPaths.clear();
 
 			// quality settings: the renderer rebuilds its targets only when something actually changed
 			renderer.resize((int)SCR_WIDTH, (int)SCR_HEIGHT);
@@ -245,22 +324,48 @@ int main()
 			}
 			gui::endPanel(left);
 
-			if (gui::beginPanel(left, "Character properties"))
+			if (gui::beginPanel(left, "Model"))
 			{
-				gui::sectionLabel("Transform");
-				ImGui::PushItemWidth(guiItemWidth);
-				ImGui::DragFloat3("Position", &pendingTransform.position.x, 0.01f);
-				ImGui::DragFloat3("Rotation", &pendingTransform.rotation.x, 0.5f);
-				ImGui::DragFloat("Scale", &pendingTransform.scale, 0.01f, 0.01f, 10.0f);
-				ImGui::PopItemWidth();
-				if (ImGui::Button("Apply transform"))
-					charTransform = pendingTransform;
-				ImGui::SameLine();
-				if (ImGui::Button("Reset"))
+				ImGui::TextWrapped("Current: %s", currentModel ? modelName.c_str() : "(none)");
+
+				ImGui::BeginDisabled(!currentModel);
+				if (ImGui::Button("Delete model"))
+					deleteModel();
+				ImGui::EndDisabled();
+
+				ImGui::SetNextItemWidth(-1.0f);
+				const bool enterPressed = ImGui::InputTextWithHint("##importPath", "path to .glb / .gltf / .fbx / .obj",
+					importPath, sizeof(importPath), ImGuiInputTextFlags_EnterReturnsTrue);
+				if (ImGui::Button("Import") || enterPressed)
 				{
-					charTransform = CharTransform();
-					pendingTransform = charTransform;
+					if (importModel(importPath))
+						importPath[0] = '\0';
 				}
+				ImGui::TextDisabled("or drag a model file onto the window");
+			}
+			gui::endPanel(left);
+
+			if (gui::beginPanel(left, "Model properties"))
+			{
+				if (currentModel)
+				{
+					gui::sectionLabel("Transform");
+					ImGui::PushItemWidth(guiItemWidth);
+					ImGui::DragFloat3("Position", &pendingTransform.position.x, 0.01f);
+					ImGui::DragFloat3("Rotation", &pendingTransform.rotation.x, 0.5f);
+					ImGui::DragFloat("Scale", &pendingTransform.scale, 0.01f, 0.01f, 10.0f);
+					ImGui::PopItemWidth();
+					if (ImGui::Button("Apply transform"))
+						charTransform = pendingTransform;
+					ImGui::SameLine();
+					if (ImGui::Button("Reset"))
+					{
+						charTransform = CharTransform();
+						pendingTransform = charTransform;
+					}
+				}
+				else
+					ImGui::TextDisabled("No model loaded");
 			}
 			gui::endPanel(left);
 
@@ -296,7 +401,7 @@ int main()
 				ImGui::SliderInt("Blur levels", &settings.bloom.levels, 1, sakuga::BLOOM_MAX_LEVELS);
 				ImGui::PopItemWidth();
 			}
-			gui::endPanel(left);
+			gui::endPanel(left);	// always, even when collapsed
 
 			// ---- right column ----
 			gui::PanelStack right = gui::rightColumn();
@@ -410,8 +515,9 @@ int main()
 			view.position = camera.Position;
 			view.fovDegrees = camera.Zoom;
 
-			// scene
-			scene.instances[0].transform = getCharacterModelMatrix();
+			// scene: the model's current transform
+			if (!scene.instances.empty())
+				scene.instances[0].transform = getModelMatrix(charTransform);
 
 			renderer.render(scene, view, settings);
 
