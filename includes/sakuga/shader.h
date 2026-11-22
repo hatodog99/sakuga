@@ -7,16 +7,17 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <string>
+#include <unordered_map>
 #include <fstream>
 #include <sstream>
 #include <iostream>
 
 class Shader {
 public:
-	unsigned int ID;
-	Shader(const char* vertexPath, const char* fragmentPath);
-	void use();
-    
+    unsigned int ID;
+    Shader(const char* vertexPath, const char* fragmentPath);
+    void use();
+
     // points the named std140 uniform block at a UBO binding point (see UniformBuffer).
     // the program remembers this, so call it once after linking.
     void bindUniformBlock(const char* blockName, unsigned int bindingPoint) const;
@@ -39,7 +40,10 @@ public:
     void setMat3(const std::string& name, const glm::mat3& mat) const;
     void setMat4(const std::string& name, const glm::mat4& mat) const;
 private:
-	void checkCompileErrors(unsigned int shader, const std::string &type);
+    // glGetUniformLocation does a string lookup inside the driver; cache each answer once
+    mutable std::unordered_map<std::string, int> uniformCache;
+    int uniformLocation(const std::string& name) const;
+    void checkCompileErrors(unsigned int shader, const std::string& type);
 };
 
 #endif
