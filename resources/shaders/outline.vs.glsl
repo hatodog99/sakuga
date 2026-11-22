@@ -6,8 +6,15 @@ layout (location = 2) in vec2 aTexCoords;
 out vec2 TexCoords;
 
 uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
+
+// shared per-frame data (binding 0, see shader_config.h). must match light.vs.glsl / light.fs.glsl
+layout (std140) uniform FrameBlock
+{
+    mat4 view;
+    mat4 projection;
+    mat4 lightSpaceMatrix;
+    vec4 viewPosition;      // xyz
+};
 
 uniform float outlineWidth;   // world units, e.g. 0.002 - 0.01
 uniform float depthBias;      // try 0.0005 - 0.005

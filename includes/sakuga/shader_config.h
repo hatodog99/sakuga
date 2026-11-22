@@ -73,18 +73,56 @@ struct Bloom
 {
     bool bloomOnly = false;     // debug view: show only bloom
     float intensity = 0.59f;
-    int passes = 4;        // horizontal + vertical blur pairs: more = wider, softer glow
+    int levels = 4;        // horizontal + vertical blur pairs: more = wider, softer glow
 };
+
+// ---- uniform buffer layouts (std140) -----------------------------------------
+// Only mat4 / vec4 / ivec4 members, so the C++ layout is identical to std140 with no padding
+// surprises. These must match FrameBlock / LightingBlock in light.vs.glsl, light.fs.glsl and
+// outline.vs.glsl member for member.
+namespace ubo
+{
+    constexpr unsigned int FRAME_BINDING = 0;
+    constexpr unsigned int LIGHTING_BINDING = 1;
+}
+
+struct FrameData
+{
+    glm::mat4 view;
+    glm::mat4 projection;
+    glm::mat4 lightSpaceMatrix;
+    glm::vec4 viewPos;
+};
+
+struct LightingData
+{
+    glm::vec4 dirDirection;
+    glm::vec4 dirAmbient;
+    glm::vec4 dirDiffuse;
+    glm::vec4 dirSpecular;
+    glm::vec4 dirColor;
+    glm::vec4 matSpecular;
+    glm::vec4 rampShadow;
+    glm::vec4 rampMid;
+    glm::vec4 rampLight;
+    glm::vec4 rampParams;
+    glm::vec4 rimColor;
+    glm::vec4 rimParams;
+    glm::ivec4 toggles;
+};
+
+static_assert(sizeof(FrameData) == 3 * 64 + 16, "FrameData must match std140 FrameBlock");
+static_assert(sizeof(LightingData) == 13 * 16, "LightingData must match std140 LightingBlock");
 
 namespace shader_config
 {
-    void applyCamera(Shader& shader, const glm::mat4& projection, const glm::mat4& view, const glm::vec3& viewPos);
-    void applyLightingToggles(Shader& shader, bool lighting, bool cellShading, bool rimLighting, bool shadowMapping);
-    void applyMaterial(Shader& shader, const Material& material);
-    void applyDirLight(Shader& shader, const DirLight& dirLight, const glm::vec3& color);
-    void applyOutline(Shader& shader, const Outline& outline, const glm::mat4& projection, const glm::mat4& view);
-    void applyColorRamp(Shader& shader, const ColorRamp& ramp);
-    void applyRimLight(Shader& shader, const RimLight& rim);
+    FrameData makeFrameData(const glm::mat4& projection, const glm::mat4& view,
+                            const glm::mat4& lightSpaceMatrix, const glm::vec3& viewPos);
+    LightingData makeLightingData(const DirLight& dirLight, const glm::vec3& lightColor,
+                                  const Material& material, const ColorRamp& ramp, const RimLight& rim,
+                                  bool lighting, bool cellShading, bool rimLighting, bool shadowMapping);
+
+    void applyOutline(Shader& shader, const Outline& outline);
 }
 
 #endif

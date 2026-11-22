@@ -16,6 +16,10 @@ public:
 	unsigned int ID;
 	Shader(const char* vertexPath, const char* fragmentPath);
 	void use();
+    
+    // points the named std140 uniform block at a UBO binding point (see UniformBuffer).
+    // the program remembers this, so call it once after linking.
+    void bindUniformBlock(const char* blockName, unsigned int bindingPoint) const;
 
     // utility uniform functions
     void setBool(const std::string& name, bool value) const;

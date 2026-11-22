@@ -59,6 +59,18 @@ void Shader::use()
 	glUseProgram(ID);
 }
 
+void Shader::bindUniformBlock(const char* blockName, unsigned int bindingPoint) const
+{
+	unsigned int index = glGetUniformBlockIndex(ID, blockName);
+	if (index == GL_INVALID_INDEX)
+	{
+		// compiler drops blocks a program never reads
+		std::cout << "shader: uniform block '" << blockName << "' not found in program " << ID << std::endl;
+		return;
+	}
+	glUniformBlockBinding(ID, index, bindingPoint);
+}
+
 void Shader::setBool(const std::string& name, bool value) const
 {
 	glUniform1i(glGetUniformLocation(ID, name.c_str()), (int)value);

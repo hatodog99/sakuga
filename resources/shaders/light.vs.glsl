@@ -8,10 +8,16 @@ out vec3 Normal;
 out vec2 TexCoords;
 out vec4 FragPosLightSpace;
 
+// shared per-frame data (binding 0, see shader_config.h). must match light.fs.glsl / outline.vs.glsl
+layout (std140) uniform FrameBlock
+{
+    mat4 view;
+    mat4 projection;
+    mat4 lightSpaceMatrix;
+    vec4 viewPosition;      // xyz
+};
+
 uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
-uniform mat4 lightSpaceMatrix;
 
 void main()
 {

@@ -39,26 +39,41 @@ struct ColorRamp {
 uniform sampler2D texture_diffuse1;
 uniform sampler2D shadowMap;
 
-uniform mat4 view;
-uniform vec3 viewPos;
+// per-frame data, uploaded once per frame (see shader_config.h: FrameData / LightingData).
+// the block layouts must match light.vs.glsl and outline.vs.glsl exactly.
+layout (std140) uniform FrameBlock
+{
+    mat4 view;
+    mat4 projection;
+    mat4 lightSpaceMatrix;
+    vec4 viewPosition;      // xyz
+};
 
-uniform DirLight dirLight;
-uniform Material material;
-uniform ColorRamp ramp;
+layout (std140) uniform LightingBlock
+{
+    vec4 dirDirection;      // xyz: direction the light travels
+    vec4 dirAmbient;        // xyz, intensity already applied
+    vec4 dirDiffuse;
+    vec4 dirSpecular;
+    vec4 dirColor;
+    vec4 matSpecular;       // xyz: color, w: shininess
+    vec4 rampShadow;
+    vec4 rampMid;
+    vec4 rampLight;
+    vec4 rampParams;        // x: softness, y: lowT, z: highT, w: levels
+    vec4 rimColorIntensity; // xyz: color, w: intensity
+    vec4 rimParams;         // x: power, yz: screen-space direction (x right, y up)
+    ivec4 toggles;          // x: lighting, y: toon shading, z: rim lighting, w: shadow mapping
+};
 
-// toggles
-uniform bool gLightingEnabled;
-uniform bool gCellShadingEnabled;
-uniform bool gRimLightingEnabled;
+// per-draw flags (the floor and the character differ)
 uniform bool gReceiveRimLighting;
-uniform bool gShadowMappingEnabled;
 uniform bool gReceiveShadowMapping;
 
-// rim lighting
-uniform vec2 rimDirection = vec2(-0.65, 1.0);   // screen space: x right, y up
-uniform vec3 rimColor = vec3(1.0);
-uniform float rimPower = 3.0;
-uniform float rimIntensity = 0.5;
+// built from the blocks at the start of main()
+DirLight dirLight;
+Material material;
+ColorRamp ramp;
 
 // pixels with alpha below this are discarded (fixes black borders on hair)
 const float ALPHA_CUTOFF = 0.5;
@@ -148,25 +163,44 @@ float ShadowCalc(vec4 fragPosLightSpace)
 // ----------------------------------------------------------------------------
 vec3 RimCalc(vec3 normal, vec3 viewDir)
 {
-    if (!gRimLightingEnabled || !gReceiveRimLighting)
+    if (toggles.z == 0 || !gReceiveRimLighting)
         return vec3(0.0);
 
     float rimFactor = 1.0 - max(dot(normal, viewDir), 0.0);
-    rimFactor = pow(rimFactor, max(rimPower, 0.0001));
+    rimFactor = pow(rimFactor, max(rimParams.x, 0.0001));
     rimFactor = smoothstep(0.5, 0.55, rimFactor);   // hard toon edge
 
     // directional mask: only surfaces facing the chosen screen direction
     vec2 n2 = (mat3(view) * normal).xy;
     float nLen = length(n2);
-    float dirMask = (nLen > 0.001) ? dot(n2 / nLen, normalize(rimDirection)) : 0.0;
+    float dirMask = (nLen > 0.001) ? dot(n2 / nLen, normalize(rimParams.yz)) : 0.0;
     dirMask = smoothstep(0.3, 0.6, dirMask);
 
-    return rimColor * rimFactor * dirMask * rimIntensity;
+    return rimColorIntensity.rgb * rimFactor * dirMask * rimColorIntensity.a;
 }
 
 // ----------------------------------------------------------------------------
 void main()
 {
+    dirLight.direction = dirDirection.xyz;
+    dirLight.ambient   = dirAmbient.xyz;
+    dirLight.diffuse   = dirDiffuse.xyz;
+    dirLight.specular  = dirSpecular.xyz;
+    dirLight.color     = dirColor.xyz;
+    material.specular  = matSpecular.xyz;
+    material.shininess = matSpecular.w;
+    ramp.shadow   = rampShadow.xyz;
+    ramp.mid      = rampMid.xyz;
+    ramp.light    = rampLight.xyz;
+    ramp.softness = rampParams.x;
+    ramp.lowT     = rampParams.y;
+    ramp.highT    = rampParams.z;
+    ramp.levels   = int(rampParams.w + 0.5);
+
+    bool gLightingEnabled = toggles.x != 0;
+    bool gCellShadingEnabled = toggles.y != 0;
+    bool gShadowMappingEnabled = toggles.w != 0;
+
     // sample once, discard transparent pixels, reuse the color below
     vec4 texSample = texture(texture_diffuse1, TexCoords);
     if (texSample.a < ALPHA_CUTOFF)
@@ -179,7 +213,7 @@ void main()
     if (gLightingEnabled)
     {
         vec3 norm = normalize(Normal);
-        vec3 viewDir = normalize(viewPos - FragPos);
+        vec3 viewDir = normalize(viewPosition.xyz - FragPos);
         vec3 lightDir = normalize(-dirLight.direction);
 
         vec3 ambient, diffuse, specular;
