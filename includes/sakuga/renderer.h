@@ -117,8 +117,7 @@ namespace sakuga
         bool outlines = true;
         bool rimLighting = true;
         bool shadowMapping = true;
-        bool postProcessing = true;
-        bool bloomEnabled = true;       // only has an effect while postProcessing is on
+        bool bloomEnabled = true;
 
         // look (types live in shader_config.h)
         glm::vec3 clearColor = glm::vec3(0.10f);    // sRGB, converted to linear internally

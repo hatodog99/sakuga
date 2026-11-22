@@ -271,7 +271,7 @@ int main()
 				ImGui::Checkbox("Toon shading", &input.cellShading);
 				ImGui::Checkbox("Outlines", &input.outline);
 				ImGui::Checkbox("Rim lighting", &input.rimLighting);
-				ImGui::Checkbox("Post-processing", &input.postProcessing);
+				ImGui::Checkbox("Bloom", &input.bloom);
 				ImGui::PushItemWidth(guiItemWidth);
 				if (ImGui::SliderFloat("Camera speed", &cameraSpeed, 0.5f, 10.0f))
 					camera.MovementSpeed = cameraSpeed;
@@ -287,16 +287,16 @@ int main()
 			}
 			gui::endPanel(left);
 
-			if (input.postProcessing && gui::beginPanel(left, "Post-processing"))
+			if (gui::beginPanel(left, "Bloom"))
 			{
-				ImGui::Checkbox("Bloom", &input.bloom);
+				ImGui::Checkbox("Enable##bloom", &input.bloom);
+				ImGui::Checkbox("Bloom only (debug)", &settings.bloom.bloomOnly);
 				ImGui::PushItemWidth(guiItemWidth);
 				ImGui::SliderFloat("Intensity", &settings.bloom.intensity, 0.0f, 4.0f);
 				ImGui::SliderInt("Blur levels", &settings.bloom.levels, 1, sakuga::BLOOM_MAX_LEVELS);
 				ImGui::PopItemWidth();
-				ImGui::Checkbox("Bloom only (debug)", &settings.bloom.bloomOnly);
 			}
-			if (input.postProcessing) gui::endPanel(left);
+			if (input.bloom) gui::endPanel(left);
 
 			// ---- right column ----
 			gui::PanelStack right = gui::rightColumn();
@@ -402,7 +402,6 @@ int main()
 			settings.outlines = input.outline;
 			settings.rimLighting = input.rimLighting;
 			settings.shadowMapping = input.shadowMapping;
-			settings.postProcessing = input.postProcessing;
 			settings.bloomEnabled = input.bloom;
 
 			// camera

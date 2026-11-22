@@ -15,7 +15,7 @@ public:
     bool lightMovement = false;     // M
     bool cellShading = true;        // C
     bool rimLighting = true;        // R
-    bool postProcessing = true, bloom = postProcessing;
+    bool bloom = true;
     bool outline = true;            // O
     bool shadowMapping = true;
     bool toggleBackground = true;   // B

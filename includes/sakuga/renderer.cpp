@@ -634,7 +634,7 @@ namespace sakuga
 		// the glow mask only holds the rim light. with lighting or rim lighting off (or zero rim
 		// intensity) it would be all black, so the second render target and the whole bloom
 		// chain are skipped
-		const bool bloomActive = s.postProcessing && s.bloomEnabled;
+		const bool bloomActive = s.bloomEnabled;
 		const bool hasGlow = s.lighting && s.rimLighting && s.rim.intensity > 0.0f;
 		const bool glowPass = bloomActive && hasGlow;
 		const GLenum sceneBuffers[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
