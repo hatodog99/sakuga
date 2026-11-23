@@ -73,7 +73,7 @@ struct Bloom
 {
     bool bloomOnly = false;
     float rimGlow = 0.59f;      // how much of the rim light feeds the glow mask (0 = none)
-    float ambientGlow = 0.0f;   // how much of the ambient light feeds the glow mask (0 = none)
+    float ambientGlow = 0.15f;   // how much of the ambient light feeds the glow mask (0 = none)
     int levels = 4;
 };
 
