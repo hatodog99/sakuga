@@ -16,6 +16,9 @@ void Input::attach(GLFWwindow* window)
 
 void Input::processInput(GLFWwindow* window)
 {
+    if (ImGui::GetIO().WantTextInput)
+        return;		// typing into a gui text box
+
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
@@ -102,6 +105,9 @@ void Input::onScroll(double yoffset)
 
 void Input::onKey(GLFWwindow* window, int key, int action, int mods)
 {
+    if (ImGui::GetIO().WantTextInput)
+        return;		// typing into a gui text box
+
     if (action != GLFW_PRESS) return;
 
     switch (key)
