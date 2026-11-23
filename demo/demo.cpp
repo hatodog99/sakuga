@@ -278,6 +278,16 @@ int main()
 			if (deltaTime > 0.0f)
 				minFPSWindow = std::min(minFPSWindow, 1.0f / deltaTime);
 
+			// restarts all fps stats (average, min, graph, current window)
+			auto resetStats = [&]()
+				{
+					avgFPSAccum = 0.0f; avgFPSCount = 0;
+					minFPS = 0.0f; minFPSWindow = 1e9f;
+					fpsTimer = 0.0f; fpsFrames = 0;		// drop the half-finished window
+					displayedFPS = 0.0f; displayedMs = 0.0f;
+					std::fill(std::begin(fpsHistory), std::end(fpsHistory), 0.0f);
+				};
+
 			input.processInput(window);
 
 			// ui (built first, so edits apply to this frame) ---------------------
@@ -300,13 +310,11 @@ int main()
 				if (ImGui::Checkbox("Vsync", &vsync))
 				{
 					glfwSwapInterval(vsync ? 1 : 0);
-					// restart the stats so the average/min reflect the new mode
-					avgFPSAccum = 0.0f; avgFPSCount = 0;
-					minFPS = 0.0f; minFPSWindow = 1e9f;
-					fpsTimer = 0.0f; fpsFrames = 0;		// drop the half-finished window (mixes old and new mode)
-					displayedFPS = 0.0f; displayedMs = 0.0f;
-					std::fill(std::begin(fpsHistory), std::end(fpsHistory), 0.0f);
+					resetStats();
 				}
+				ImGui::SameLine(140.0f);
+				if (ImGui::Button("Reset stats"))
+					resetStats();
 
 				ImGui::PushItemWidth(guiItemWidth);
 				const char* msaaItems[3] = { "Off", "2x", "4x" };
