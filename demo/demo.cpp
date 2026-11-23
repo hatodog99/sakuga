@@ -406,8 +406,8 @@ int main()
 				ImGui::Checkbox("Enable##bloom", &input.bloom);
 				ImGui::Checkbox("Bloom only (debug)", &settings.bloom.bloomOnly);
 				ImGui::PushItemWidth(guiItemWidth);
-				ImGui::SliderFloat("Rim glow", &settings.bloom.rimGlow, 0.0f, 4.0f);
-				ImGui::SliderFloat("Ambient glow", &settings.bloom.ambientGlow, 0.0f, 1.0f);
+				ImGui::SliderFloat("Rim", &settings.bloom.rimGlow, 0.0f, 4.0f);
+				ImGui::SliderFloat("Ambient", &settings.bloom.ambientGlow, 0.0f, 1.0f);
 				ImGui::SliderInt("Blur levels", &settings.bloom.levels, 1, sakuga::BLOOM_MAX_LEVELS);
 				ImGui::PopItemWidth();
 			}
