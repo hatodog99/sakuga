@@ -69,6 +69,7 @@ layout (std140) uniform LightingBlock
 // per-draw flags (the floor and the character differ)
 uniform bool gReceiveRimLighting;
 uniform bool gReceiveShadowMapping;
+uniform bool gReceiveBloom;
 
 // built from the blocks at the start of main()
 DirLight dirLight;
@@ -220,8 +221,10 @@ void main()
         DirLightCalc(dirLight, norm, viewDir, ambient, diffuse, specular);
 
         vec3 rim = RimCalc(norm, viewDir);
-        // glow mask = rim light + (optionally) the ambient light on the surface's albedo
-        glow = rim * rampShadow.w + dirLight.ambient * dirLight.color * texColor * rimParams.w;
+        // glow mask = rim light + ambient glow, only for draws that receive bloom (the floor doesn't)
+        glow = gReceiveBloom
+            ? rim * rampShadow.w + dirLight.ambient * dirLight.color * texColor * rimParams.w
+            : vec3(0.0);
         float shadow = gShadowMappingEnabled ? ShadowCalc(FragPosLightSpace) : 0.0;
 
         if (gCellShadingEnabled)

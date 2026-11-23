@@ -80,6 +80,7 @@ namespace sakuga
         bool castShadow = true;
         bool receiveShadow = false;
         bool receiveRim = true;
+        bool receiveBloom = true;       // writes its rim / ambient glow into the bloom mask
         bool outlined = true;
     };
 
@@ -88,8 +89,9 @@ namespace sakuga
     {
         bool enabled = true;
         float y = -0.8f;
-        float halfWidth = 2.0f;         // 2.0 = 4x4 units
-        TextureHandle texture;          // invalid = plain white
+        float halfWidth = 2.0f;
+        bool receiveBloom = false;      // the floor doesn't glow by default
+        TextureHandle texture;
     };
 
     struct Scene

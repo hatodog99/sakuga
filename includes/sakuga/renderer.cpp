@@ -674,6 +674,7 @@ namespace sakuga
 				continue;
 			d.lit.setBool("gReceiveShadowMapping", inst.receiveShadow);
 			d.lit.setBool("gReceiveRimLighting", inst.receiveRim);
+			d.lit.setBool("gReceiveBloom", inst.receiveBloom);
 			setModelMatrices(d.lit, inst.transform);
 			m->Draw();
 		}
@@ -692,6 +693,7 @@ namespace sakuga
 
 			d.lit.setBool("gReceiveShadowMapping", true);
 			d.lit.setBool("gReceiveRimLighting", false);
+			d.lit.setBool("gReceiveBloom", scene.floor.receiveBloom);
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, floorTex);
 			setModelMatrices(d.lit, floorModel);
