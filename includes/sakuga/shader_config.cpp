@@ -16,7 +16,7 @@ namespace shader_config
     LightingData makeLightingData(const DirLight& dirLight, const glm::vec3& lightColor,
                                     const Material& material, const ColorRamp& ramp, const RimLight& rim,
                                     bool lighting, bool cellShading, bool rimLighting, bool shadowMapping,
-                                    float ambientGlow)
+                                    const Bloom& bloom)
     {
         LightingData d;
         d.dirDirection = glm::vec4(dirLight.direction, 0.0f);
@@ -25,14 +25,14 @@ namespace shader_config
         d.dirSpecular = glm::vec4(dirLight.specular * dirLight.specularIntensity, 0.0f);
         d.dirColor = glm::vec4(lightColor, 0.0f);
         d.matSpecular = glm::vec4(material.specular, material.shininess);
-        d.rampShadow = glm::vec4(ramp.shadow, 0.0f);
+        d.rampShadow = glm::vec4(ramp.shadow, bloom.rimGlow);
         d.rampMid = glm::vec4(ramp.mid, 0.0f);
         d.rampLight = glm::vec4(ramp.light, 0.0f);
         d.rampParams = glm::vec4(ramp.softness, ramp.lowT, ramp.highT, (float)ramp.levels);
         d.rimColor = glm::vec4(rim.color, rim.intensity);
         d.rimParams = glm::vec4(rim.power, rim.direction.x, rim.direction.y, 0.0f);
         d.toggles = glm::ivec4(lighting, cellShading, rimLighting, shadowMapping);
-        d.rimParams = glm::vec4(rim.power, rim.direction.x, rim.direction.y, ambientGlow);
+        d.rimParams = glm::vec4(rim.power, rim.direction.x, rim.direction.y, bloom.ambientGlow);
         return d;
     }
 

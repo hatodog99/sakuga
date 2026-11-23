@@ -57,7 +57,7 @@ layout (std140) uniform LightingBlock
     vec4 dirSpecular;
     vec4 dirColor;
     vec4 matSpecular;       // xyz: color, w: shininess
-    vec4 rampShadow;
+    vec4 rampShadow;        // xyz: color, w: rim glow strength    
     vec4 rampMid;
     vec4 rampLight;
     vec4 rampParams;        // x: softness, y: lowT, z: highT, w: levels
@@ -221,7 +221,7 @@ void main()
 
         vec3 rim = RimCalc(norm, viewDir);
         // glow mask = rim light + (optionally) the ambient light on the surface's albedo
-        glow = rim + dirLight.ambient * dirLight.color * texColor * rimParams.w;
+        glow = rim * rampShadow.w + dirLight.ambient * dirLight.color * texColor * rimParams.w;
         float shadow = gShadowMappingEnabled ? ShadowCalc(FragPosLightSpace) : 0.0;
 
         if (gCellShadingEnabled)

@@ -635,7 +635,7 @@ namespace sakuga
 		// intensity) it would be all black, so the second render target and the whole bloom
 		// chain are skipped
 		const bool bloomActive = s.bloomEnabled;
-		const bool hasRimGlow = s.rimLighting && s.rim.intensity > 0.0f;
+		const bool hasRimGlow = s.rimLighting && s.rim.intensity > 0.0f && s.bloom.rimGlow > 0.0f;
 		const bool hasAmbientGlow = s.bloom.ambientGlow > 0.0f;
 		const bool hasGlow = s.lighting && (hasRimGlow || hasAmbientGlow);
 		const bool glowPass = bloomActive && hasGlow;
@@ -664,7 +664,7 @@ namespace sakuga
 		// per-frame uniforms: two uploads instead of ~30 uniform calls
 		d.frameUBO.update(shader_config::makeFrameData(projection, view.view, lightSpace, view.position));
 		d.lightingUBO.update(shader_config::makeLightingData(s.dirLight, s.lightColor, s.material, s.ramp, s.rim,
-			s.lighting, s.toonShading, s.rimLighting, s.shadowMapping, s.bloom.ambientGlow));
+			s.lighting, s.toonShading, s.rimLighting, s.shadowMapping, s.bloom));
 
 		d.lit.use();
 		for (const ModelInstance& inst : scene.instances)
@@ -783,7 +783,7 @@ namespace sakuga
 		d.compositeShader.setBool("bloomEnabled", glowPass);
 		// every level is added into level 0, so divide by the level count to keep the total glow
 		// energy the same however many levels are used
-		d.compositeShader.setFloat("bloomIntensity", s.bloom.intensity / (float)bloomLevels);
+		d.compositeShader.setFloat("bloomIntensity", 1.0f / (float)bloomLevels);
 		d.compositeShader.setBool("bloomOnly", bloomActive && s.bloom.bloomOnly);	// nothing glowing = black, as expected
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, d.resolveTex);

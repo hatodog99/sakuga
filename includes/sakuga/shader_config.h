@@ -72,9 +72,9 @@ struct RimLight
 struct Bloom
 {
     bool bloomOnly = false;
-    float intensity = 0.59f;
-    int levels = 4;
+    float rimGlow = 0.59f;      // how much of the rim light feeds the glow mask (0 = none)
     float ambientGlow = 0.0f;   // how much of the ambient light feeds the glow mask (0 = none)
+    int levels = 4;
 };
 
 // ---- uniform buffer layouts (std140) -----------------------------------------
@@ -122,7 +122,7 @@ namespace shader_config
     LightingData makeLightingData(const DirLight& dirLight, const glm::vec3& lightColor,
                                     const Material& material, const ColorRamp& ramp, const RimLight& rim,
                                     bool lighting, bool cellShading, bool rimLighting, bool shadowMapping,
-                                    float ambientGlow);
+                                    const Bloom& bloom);
 
     void applyOutline(Shader& shader, const Outline& outline);
 }
