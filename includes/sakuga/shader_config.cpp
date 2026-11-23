@@ -14,8 +14,9 @@ namespace shader_config
     }
 
     LightingData makeLightingData(const DirLight& dirLight, const glm::vec3& lightColor,
-        const Material& material, const ColorRamp& ramp, const RimLight& rim,
-        bool lighting, bool cellShading, bool rimLighting, bool shadowMapping)
+                                    const Material& material, const ColorRamp& ramp, const RimLight& rim,
+                                    bool lighting, bool cellShading, bool rimLighting, bool shadowMapping,
+                                    float ambientGlow)
     {
         LightingData d;
         d.dirDirection = glm::vec4(dirLight.direction, 0.0f);
@@ -31,6 +32,7 @@ namespace shader_config
         d.rimColor = glm::vec4(rim.color, rim.intensity);
         d.rimParams = glm::vec4(rim.power, rim.direction.x, rim.direction.y, 0.0f);
         d.toggles = glm::ivec4(lighting, cellShading, rimLighting, shadowMapping);
+        d.rimParams = glm::vec4(rim.power, rim.direction.x, rim.direction.y, ambientGlow);
         return d;
     }
 

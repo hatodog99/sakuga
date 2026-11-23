@@ -220,7 +220,8 @@ void main()
         DirLightCalc(dirLight, norm, viewDir, ambient, diffuse, specular);
 
         vec3 rim = RimCalc(norm, viewDir);
-        glow = rim;     // the floor has gReceiveRimLighting = false, so rim (and glow) is 0 there
+        // glow mask = rim light + (optionally) the ambient light on the surface's albedo
+        glow = rim + dirLight.ambient * dirLight.color * texColor * rimParams.w;
         float shadow = gShadowMappingEnabled ? ShadowCalc(FragPosLightSpace) : 0.0;
 
         if (gCellShadingEnabled)

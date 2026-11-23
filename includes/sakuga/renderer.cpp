@@ -635,7 +635,9 @@ namespace sakuga
 		// intensity) it would be all black, so the second render target and the whole bloom
 		// chain are skipped
 		const bool bloomActive = s.bloomEnabled;
-		const bool hasGlow = s.lighting && s.rimLighting && s.rim.intensity > 0.0f;
+		const bool hasRimGlow = s.rimLighting && s.rim.intensity > 0.0f;
+		const bool hasAmbientGlow = s.bloom.ambientGlow > 0.0f;
+		const bool hasGlow = s.lighting && (hasRimGlow || hasAmbientGlow);
 		const bool glowPass = bloomActive && hasGlow;
 		const GLenum sceneBuffers[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
 		const int sceneBufferCount = glowPass ? 2 : 1;
@@ -662,7 +664,7 @@ namespace sakuga
 		// per-frame uniforms: two uploads instead of ~30 uniform calls
 		d.frameUBO.update(shader_config::makeFrameData(projection, view.view, lightSpace, view.position));
 		d.lightingUBO.update(shader_config::makeLightingData(s.dirLight, s.lightColor, s.material, s.ramp, s.rim,
-			s.lighting, s.toonShading, s.rimLighting, s.shadowMapping));
+			s.lighting, s.toonShading, s.rimLighting, s.shadowMapping, s.bloom.ambientGlow));
 
 		d.lit.use();
 		for (const ModelInstance& inst : scene.instances)
