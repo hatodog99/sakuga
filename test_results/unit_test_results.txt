@@ -1,0 +1,38 @@
+Unit test run: 2026-11-25 04:17:21
+GL_VERSION:  4.6 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.2
+GL_RENDERER: Mesa Intel(R) UHD Graphics 600 (GLK 2)
+GL_VENDOR:   Intel
+GL_MAX_SAMPLES: 16
+
+=== UT-07  Shadow depth map and PCF pass  ->  Pass ===
+  [pass] (a) shadowMapTexture() returns a texture object
+  [pass] (a) depth-only inspection framebuffer is GL_FRAMEBUFFER_COMPLETE
+  depth texels populated: 90448 of 4194304, minimum depth 0.274176
+  [pass] (a) the depth map holds values inside the caster's footprint and is not entirely cleared
+  [pass] (a) populated depth values lie strictly between 0 and 1
+  [pass] (b) with shadow mapping off two floor points share one color
+  pixels changed 2086, maximum darkening 79.000015, fully shadowed 1704, partially shadowed 382
+  [pass] (b) enabling shadow mapping darkens a region of the floor
+  [pass] (b) the shadow boundary contains partially shadowed samples (3x3 PCF)
+  evidence: test_results/UT-07_shadow_on.bmp
+  evidence: test_results/UT-07_shadow_off.bmp
+
+=== UT-10  Boundary and degenerate inputs  ->  Pass ===
+  [pass] (a) a zero shadow direction renders identically to the straight-down direction
+  [pass] (a) the depth map is populated for the zero-direction case (no NaN matrices)
+  [pass] (b) render at 0x0 draws nothing (the target keeps its contents)
+  [pass] (b) render at 0x0 raises no GL error (got 0x0)
+  [pass] (b) rendering resumes after resizing back to 64x64
+  [pass] (c) setRenderScale(0.1) renders identically to 0.25 (clamped)
+  [pass] (c) the clamped scale differs from full scale (sanity check)
+  [pass] (c) setMsaa(999) clamps to GL_MAX_SAMPLES (16 of 16)
+  [pass] (c) the clamped MSAA targets are complete
+  [pass] (d) Bloom levels 0 renders identically to 1
+  [pass] (d) Bloom levels 99 renders identically to 8
+  [pass] (d) toon levels 0 and 1 render identically to 2
+  [pass] (d) toon levels 9 and 99 render identically to 8
+  [pass] (d) toon levels 2 and 8 differ (sanity check)
+
+---- rows for Table 9 (Test ID | Outcome | Actual result) ----
+UT-07 | Pass | 7 checks passed
+UT-10 | Pass | 14 checks passed

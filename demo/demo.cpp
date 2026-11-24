@@ -11,6 +11,8 @@
 #include <sakuga/input.h>
 #include <sakuga/renderer.h>
 
+#include <assimp/version.h>
+
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -233,6 +235,15 @@ int main()
 		float pendingRenderScale = renderScale;	// slider value, committed when the slider is released (resizing every frame while dragging would thrash)
 
 		lastFrameTime = static_cast<float>(glfwGetTime());	// avoid first huge deltaTime
+
+		GLint maxSamples = 0;
+		glGetIntegerv(GL_MAX_SAMPLES, &maxSamples);
+		std::cout << "GL_VERSION: " << glGetString(GL_VERSION) << "\n"
+				  << "GL_RENDERER: "<<  glGetString(GL_RENDERER) << "\n"
+				  << "GL_MAX_SAMPLES: "<< maxSamples << "\n"
+				  << "GLFW: "<< glfwGetVersionString() << "\n"
+				  << "ImGui: "<< ImGui::GetVersion() << "\n"
+				  << "Assimp: "<< aiGetVersionMajor() << "." << aiGetVersionMinor() << "." << aiGetVersionRevision() << "\n";
 
 		// render loop ------------------------------------------------------------
 		while (!glfwWindowShouldClose(window))

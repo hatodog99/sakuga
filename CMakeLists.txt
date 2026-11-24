@@ -29,7 +29,9 @@ target_include_directories(imgui PUBLIC
     "${IMGUI_DIR}"
     "${IMGUI_DIR}/backends"
 )
-target_link_libraries(imgui PUBLIC glfw ${CMAKE_DL_LIBS})
+target_link_libraries(
+    imgui PUBLIC glfw ${CMAKE_DL_LIBS}
+)
 
 add_executable(sakuga
     demo/demo.cpp
@@ -39,6 +41,7 @@ add_executable(sakuga
     includes/sakuga/input.cpp
     includes/sakuga/mesh.cpp
     includes/sakuga/model.cpp
+    includes/sakuga/renderer.cpp
     includes/sakuga/shader.cpp
     includes/sakuga/shader_config.cpp
     includes/stb/stb_image.cpp
@@ -67,3 +70,16 @@ add_custom_command(TARGET sakuga POST_BUILD
     COMMENT "Copying resources to output directory"
     VERBATIM
 )
+
+# ST-07 lifecycle test: reuses the demo's sources, includes and libraries, but has its own main
+get_target_property(ST07_SOURCES sakuga SOURCES)
+list(FILTER ST07_SOURCES EXCLUDE REGEX "demo/demo\\.cpp$")
+add_executable(st07 tests/st07_lifecycle_test.cpp ${ST07_SOURCES})
+target_include_directories(st07 PRIVATE $<TARGET_PROPERTY:sakuga,INCLUDE_DIRECTORIES>)
+target_link_libraries(st07 PRIVATE $<TARGET_PROPERTY:sakuga,LINK_LIBRARIES>)
+set_target_properties(st07 PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)
+
+add_executable(unit_tests tests/unit_tests.cpp ${ST07_SOURCES})
+target_include_directories(unit_tests PRIVATE $<TARGET_PROPERTY:sakuga,INCLUDE_DIRECTORIES>)
+target_link_libraries(unit_tests PRIVATE $<TARGET_PROPERTY:sakuga,LINK_LIBRARIES>)
+set_target_properties(unit_tests PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)

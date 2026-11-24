@@ -1,0 +1,115 @@
+GL_VERSION:  4.6 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.2
+GL_RENDERER: Mesa Intel(R) UHD Graphics 600 (GLK 2)
+cycles: 50   model: resources/objects/2B/2B-1.glb
+
+model loaded: 6 meshes
+cycle 1  gl_error=0x0  rss=120764 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 2  gl_error=0x0  rss=105788 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 3  gl_error=0x0  rss=128700 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 4  gl_error=0x0  rss=129084 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 5  gl_error=0x0  rss=106440 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 6  gl_error=0x0  rss=106640 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 7  gl_error=0x0  rss=106660 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 8  gl_error=0x0  rss=106688 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 9  gl_error=0x0  rss=106688 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 10  gl_error=0x0  rss=106696 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 11  gl_error=0x0  rss=106696 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 12  gl_error=0x0  rss=106696 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 13  gl_error=0x0  rss=106696 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 14  gl_error=0x0  rss=106696 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 15  gl_error=0x0  rss=106696 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 16  gl_error=0x0  rss=106696 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 17  gl_error=0x0  rss=106688 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 18  gl_error=0x0  rss=106688 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 19  gl_error=0x0  rss=106688 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 20  gl_error=0x0  rss=106688 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 21  gl_error=0x0  rss=106688 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 22  gl_error=0x0  rss=106744 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 23  gl_error=0x0  rss=129272 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 24  gl_error=0x0  rss=106728 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 25  gl_error=0x0  rss=106728 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 26  gl_error=0x0  rss=106728 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 27  gl_error=0x0  rss=106728 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 28  gl_error=0x0  rss=106728 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 29  gl_error=0x0  rss=106728 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 30  gl_error=0x0  rss=106728 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 31  gl_error=0x0  rss=106744 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 32  gl_error=0x0  rss=129272 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 33  gl_error=0x0  rss=106904 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 34  gl_error=0x0  rss=106904 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 35  gl_error=0x0  rss=106904 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 36  gl_error=0x0  rss=106912 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 37  gl_error=0x0  rss=106912 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 38  gl_error=0x0  rss=106912 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 39  gl_error=0x0  rss=129312 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 40  gl_error=0x0  rss=106844 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 41  gl_error=0x0  rss=106844 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 42  gl_error=0x0  rss=106844 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 43  gl_error=0x0  rss=106844 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 44  gl_error=0x0  rss=106844 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 45  gl_error=0x0  rss=106844 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 46  gl_error=0x0  rss=106844 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 47  gl_error=0x0  rss=129244 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 48  gl_error=0x0  rss=106844 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 49  gl_error=0x0  rss=106844 kB  model=1 tex=1
+model loaded: 6 meshes
+cycle 50  gl_error=0x0  rss=129244 kB  model=1 tex=1
+
+---- summary ----
+cycles run:            50
+cycles with GL error:  0
+cycles with load fail: 0
+RSS after cycle 5: 106440 kB
+RSS after cycle 50: 129244 kB
+growth over the last 45 cycles: 22804 kB (506 kB per cycle)
+(a steady rise every cycle suggests a leak; a flat line after warm-up does not)
+log written to ST-07_log.csv
+GPU object counts were NOT measured by this program.
