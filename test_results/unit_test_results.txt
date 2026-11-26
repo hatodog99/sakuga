@@ -1,8 +1,91 @@
-Unit test run: 2026-11-25 04:17:21
+Unit test run: 2026-11-27 00:47:17
 GL_VERSION:  4.6 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.2
 GL_RENDERER: Mesa Intel(R) UHD Graphics 600 (GLK 2)
 GL_VENDOR:   Intel
 GL_MAX_SAMPLES: 16
+
+=== UT-01  GLSL shader loader and compiler  ->  Pass ===
+  [pass] lit program links with no compile/link diagnostics
+  [pass] lit: FrameBlock size 208 == sizeof(FrameData) 208
+  [pass] lit: LightingBlock size 208 == sizeof(LightingData) 208
+  [pass] outline program links with no compile/link diagnostics
+  [pass] outline: FrameBlock size 208 == sizeof(FrameData)
+  [pass] shadow depth program links with no compile/link diagnostics
+  [pass] debug depth program links with no compile/link diagnostics
+  [pass] bloom downsample program links with no compile/link diagnostics
+  [pass] bloom upsample program links with no compile/link diagnostics
+  [pass] composite program links with no compile/link diagnostics
+  [pass] corrupted shader: program reports unsuccessful link
+  [pass] corrupted shader: compile diagnostic recorded
+  console: error::shader::2::compilation_failed
+  [pass] missing shader file: program reports unsuccessful link
+  [pass] missing shader file: read diagnostic recorded
+  console: error::shader::file_not_successfully_read
+
+=== UT-02  Assimp and stb_image model loader  ->  Pass ===
+  [pass] load 1: at least one mesh imported (6)
+  [pass] load 1: every mesh has a valid VAO and a positive index count divisible by three
+  [pass] load 1: diffuse textures found (4)
+  [pass] load 1: every diffuse texture is a valid texture object larger than 1x1
+  [pass] load 2: at least one mesh imported (6)
+  [pass] load 2: mesh count matches the first load
+  [pass] load 2: every mesh has a valid VAO and a positive index count divisible by three
+  [pass] load 2: diffuse textures found (4)
+  [pass] load 2: every diffuse texture is a valid texture object larger than 1x1
+
+=== UT-03  Invalid-asset fault handling  ->  Pass ===
+  [pass] (a) loadModel(empty path) returns an invalid handle
+  console: ERROR::ASSIMP:: Unable to open file "".
+  [pass] (a) loadModel(nonexistent .glb) returns an invalid handle
+  console: ERROR::ASSIMP:: Unable to open file "resources/objects/does_not_exist.glb".
+  [pass] (a) loadModel(directory path) returns an invalid handle
+  console: ERROR::ASSIMP:: No suitable reader found for the file format of file "resources".
+  [pass] (a) loadModel(truncated GLB copy) returns an invalid handle
+  console: ERROR::ASSIMP:: GLTF: Invalid byteLength exceeds size of actual data.
+  [pass] (b) loadTexture(nonexistent) returns an invalid handle
+  console: failed to load texture: test_tmp/no_such_image.png
+  console: Could not load texture file: test_tmp/missing_texture.png
+  [pass] (c) model with a missing referenced texture still loads (valid handle)
+  [pass] (c) the model has a diffuse texture slot
+  [pass] (c) the missing texture is replaced by a 1x1 opaque white texture
+  [pass] (c) a diagnostic names the missing texture file
+
+=== UT-04  Camera controls and frame data preparation  ->  Pass ===
+  [pass] default camera looks down -Z
+  [pass] keyboard FORWARD moves by speed * deltaTime in the implemented direction
+  [pass] keyboard BACKWARD moves by speed * deltaTime in the implemented direction
+  [pass] keyboard LEFT moves by speed * deltaTime in the implemented direction
+  [pass] keyboard RIGHT moves by speed * deltaTime in the implemented direction
+  [pass] keyboard UP moves by speed * deltaTime in the implemented direction
+  [pass] keyboard DOWN moves by speed * deltaTime in the implemented direction
+  [pass] pitch clamps at +89 (got 89.000000)
+  [pass] pitch clamps at -89 (got -89.000000)
+  [pass] view matrix is finite at the pitch limits
+  [pass] zoom clamps at 1 degree (got 1.000000)
+  [pass] zoom clamps at 45 degrees (got 45.000000)
+  [pass] frame data holds the supplied view, projection, and light-space matrices
+  [pass] frame data camera position keeps xyz and viewPos.w == 0
+
+=== UT-05  Toon quantization and color ramp  ->  Pass ===
+  [pass] 64 of 64 sampled pixels match the ramp equation within +/-6 (levels 2/3/4/8, softness 0 and 0.2)
+  [pass] raising Softness from 0 to 0.2 changes the pixel inside the transition region (max channel change 25)
+  evidence: test_results/UT-05_samples.csv
+
+=== UT-06  Inverted-hull outline geometry  ->  Pass ===
+  outline-colored pixels with outlines off (baseline): 0
+  net outline pixels: width 0 = 0, 0.001 = 215, 0.003 = 645
+  [pass] a positive Width produces more outline coverage than Width 0
+  [pass] Width 0.003 gives at least the coverage of Width 0.001
+  net outline pixels: depth bias 0 = 707, 0.001 = 215, 0.003 = 173 (inspect the bias_*.bmp captures for gaps)
+  [pass] outline stays visible at depth bias 0, 0.001, and 0.003
+  [pass] ModelInstance::outlined = false removes the outline (image equals outlines off)
+  evidence: test_results/UT-06_outlines_off.bmp
+  evidence: test_results/UT-06_width_0.bmp
+  evidence: test_results/UT-06_width_0.001.bmp
+  evidence: test_results/UT-06_width_0.003.bmp
+  evidence: test_results/UT-06_bias_0.bmp
+  evidence: test_results/UT-06_bias_0.001.bmp
+  evidence: test_results/UT-06_bias_0.003.bmp
 
 === UT-07  Shadow depth map and PCF pass  ->  Pass ===
   [pass] (a) shadowMapTexture() returns a texture object
@@ -16,6 +99,52 @@ GL_MAX_SAMPLES: 16
   [pass] (b) the shadow boundary contains partially shadowed samples (3x3 PCF)
   evidence: test_results/UT-07_shadow_on.bmp
   evidence: test_results/UT-07_shadow_off.bmp
+
+=== UT-08  Rim light and bloom pass  ->  Pass ===
+  [pass] (a) Intensity 0 matches rim lighting disabled
+  rim contribution (sum of channel differences): intensity 0.55 = 17242, 1.0 = 23443
+  [pass] (a) Intensity 0.55 adds a visible rim contribution
+  [pass] (a) Intensity 1.0 adds more rim light than 0.55
+  rim pixels: power 0.5 = 907, 3 = 58, 8 = 17
+  [pass] (a) a higher Power gives a thinner rim (pixel count falls from power 0.5 to 3 to 8)
+  [pass] (b) rimGlow = 0 and ambientGlow = 0: no glow contribution
+  [pass] (b) ambientGlow = 0.5 alone produces bloom
+  [pass] (b) ambientGlow = 1.0 glows more than 0.5
+  [pass] (b) rimGlow = 0.59 with rim lighting on (intensity 0.55) alone produces bloom
+  [pass] (b) Lighting off suppresses bloom even with both glow weights above zero
+  [pass] (b) receiveBloom = false: the character stops contributing and the floor stays non-glowing
+  [pass] (b) receiveBloom = true with the default glow weights produces bloom
+  [pass] (b) Bloom off: the composite still draws the scene
+  [pass] (b) Bloom off: the bloom-only view has no effect, so the bloom chain contributes nothing
+  [pass] (b) Bloom on changes the final image compared with Bloom off
+  glowing pixels: levels 1 = 6220, 4 = 29675, 8 = 82944
+  [pass] (b) more blur levels spread the glow (levels 1 < 4 <= 8)
+  [pass] (c) bloom on, outlines on: target bound, viewport 384x216, depth test on, culling on, blending off, cull mode GL_BACK
+  [pass] (c) bloom off, outlines off: target bound, viewport 384x216, depth test on, culling on, blending off, cull mode GL_BACK
+  [pass] (c) shadow debug overlay on: target bound, viewport 384x216, depth test on, culling on, blending off, cull mode GL_BACK
+  [pass] (c) 4x MSAA resolve path: target bound, viewport 384x216, depth test on, culling on, blending off, cull mode GL_BACK
+  [pass] (c) default framebuffer as target: target bound, viewport 256x256, depth test on, culling on, blending off, cull mode GL_BACK
+  evidence: test_results/UT-08_rim_off.bmp
+  evidence: test_results/UT-08_rim_0.55_p3.bmp
+  evidence: test_results/UT-08_bloom_ambient_0.5.bmp
+  evidence: test_results/UT-08_bloom_rim_only.bmp
+  evidence: test_results/UT-08_bloom_levels_1.bmp
+  evidence: test_results/UT-08_bloom_levels_4.bmp
+  evidence: test_results/UT-08_bloom_levels_8.bmp
+
+=== UT-09  Model replacement and shadow-cache invalidation  ->  Pass ===
+  [pass] frame 1: the shadow pass ran and populated the depth map
+  [pass] frame 2 (unchanged inputs): the shadow pass is skipped, the marker is untouched
+  [pass] after unloadModel: the shadow pass runs again (cache invalidated)
+  [pass] after unloadModel: no casters are drawn into the depth map
+  [pass] a stale model handle draws nothing (image equals the floor-only scene)
+  [pass] model B loads with a new handle
+  [pass] after loading B: the shadow pass runs and draws the new model
+  [pass] next frame, unchanged: the shadow pass is skipped again
+  [pass] changed shadow direction: the shadow pass runs
+  [pass] same direction on the next frame: no second refresh
+  [pass] loadModel on an invalid path returns an invalid handle
+  [pass] the current model still renders identically after the failed load
 
 === UT-10  Boundary and degenerate inputs  ->  Pass ===
   [pass] (a) a zero shadow direction renders identically to the straight-down direction
@@ -34,5 +163,13 @@ GL_MAX_SAMPLES: 16
   [pass] (d) toon levels 2 and 8 differ (sanity check)
 
 ---- rows for Table 9 (Test ID | Outcome | Actual result) ----
+UT-01 | Pass | 14 checks passed
+UT-02 | Pass | 9 checks passed
+UT-03 | Pass | 9 checks passed
+UT-04 | Pass | 14 checks passed
+UT-05 | Pass | 2 checks passed
+UT-06 | Pass | 4 checks passed
 UT-07 | Pass | 7 checks passed
+UT-08 | Pass | 20 checks passed
+UT-09 | Pass | 12 checks passed
 UT-10 | Pass | 14 checks passed
